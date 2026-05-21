@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android Schedule Bootstrap"
+  short_description: "安卓课程表工程环境、构建与骨架排障指南"
+  default_prompt: "Use $android-schedule-bootstrap to set up or troubleshoot this repository's Android app."
