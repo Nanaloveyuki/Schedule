@@ -5,6 +5,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseKeystorePath = providers.gradleProperty("releaseKeystorePath")
+val releaseStorePassword = providers.gradleProperty("releaseStorePassword")
+val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias")
+val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword")
+
 android {
     namespace = "com.miaom.schedule"
     compileSdk = 36
@@ -23,9 +28,27 @@ android {
         }
     }
 
+    signingConfigs {
+        if (
+            releaseKeystorePath.isPresent &&
+            releaseStorePassword.isPresent &&
+            releaseKeyAlias.isPresent &&
+            releaseKeyPassword.isPresent
+        ) {
+            create("release") {
+                storeFile = file(releaseKeystorePath.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

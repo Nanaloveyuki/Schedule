@@ -34,10 +34,26 @@ jobs:
           grep -v '^org\.gradle\.java\.home=' gradle.properties > gradle.properties.ci
           mv gradle.properties.ci gradle.properties
 
+      - name: Decode Android signing keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "Missing secret: RELEASE_KEYSTORE_BASE64" >&2
+            exit 1
+          fi
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x gradlew
 
       - name: Build release APK
+        env:
+          ORG_GRADLE_PROJECT_releaseKeystorePath: ${{ runner.temp }}/release.keystore
+          ORG_GRADLE_PROJECT_releaseStorePassword: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_releaseKeyAlias: ${{ secrets.RELEASE_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_releaseKeyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
       - name: Upload release APK artifact
