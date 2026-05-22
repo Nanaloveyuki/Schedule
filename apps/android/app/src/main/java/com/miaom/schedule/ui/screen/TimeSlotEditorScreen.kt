@@ -105,12 +105,7 @@ fun TimeSlotEditorScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "模板编辑",
-                    subtitle = if (editingSlotId == null) {
-                        "这里维护时间段模板；课程级覆盖时间在课程编辑页单独设置。"
-                    } else {
-                        "正在修改已保存模板。"
-                    }
+                    title = if (editingSlotId == null) "时间段" else "编辑时间段"
                 ) {
                     ExposedDropdownMenuBox(
                         expanded = slotExpanded && uiState.slots.isNotEmpty(),
@@ -124,8 +119,8 @@ fun TimeSlotEditorScreen(onBack: () -> Unit) {
                             value = editingSlot?.let { "${it.label} ${it.startTime}-${it.endTime}" }.orEmpty(),
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("选择已有模板") },
-                            placeholder = { Text("不选则创建新模板") },
+                            label = { Text("已有时间段") },
+                            placeholder = { Text("不选则新建") },
                             trailingIcon = {
                                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = slotExpanded && uiState.slots.isNotEmpty())
                             },
@@ -154,7 +149,7 @@ fun TimeSlotEditorScreen(onBack: () -> Unit) {
                         }
                     }
                     TextButton(onClick = ::resetForm) {
-                        Text("切换为新建模板")
+                        Text("新建时间段")
                     }
                     TimeSlotFormFields(
                         label = label,
@@ -164,13 +159,9 @@ fun TimeSlotEditorScreen(onBack: () -> Unit) {
                         endTime = endTime,
                         onEndTimeChange = { endTime = it }
                     )
-                    EditorInlineNote(
-                        text = if (editingSlotId == null) {
-                            "当前会新增一个模板时间段。"
-                        } else {
-                            "当前会更新所选模板，引用该模板的课程会同步看到新的模板时间。"
-                        }
-                    )
+                    if (editingSlotId != null) {
+                        EditorInlineNote("更新后会同步到使用该时间段的课程。")
+                    }
                 }
             }
 
@@ -200,7 +191,7 @@ fun TimeSlotEditorScreen(onBack: () -> Unit) {
             }
 
             item {
-                Text("已保存时间段模板", style = MaterialTheme.typography.titleMedium)
+                Text("已保存时间段", style = MaterialTheme.typography.titleMedium)
             }
 
             items(uiState.slots, key = { it.id }) { slot ->

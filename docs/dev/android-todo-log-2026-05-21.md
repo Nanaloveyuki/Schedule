@@ -2,23 +2,67 @@
 
 ## 适用范围
 
-本文记录 `apps/android` 截至 2026-05-21 收尾时的状态、已确认方向、agent 分工约定和明日待办，供下一轮继续开发时直接接手。
+本文记录 `apps/android` 在最近一轮三次提交之后的主线状态、分工建议和下一轮建议处理顺序，供继续协作时直接接手。
 
-## 今日收口结论
+## 本轮收口结论
 
-- 当前 Android 主线仍以 `SharedPreferences + JSON + StateFlow + ScheduleDocument` 为可运行基线。
-- 多轮改动后，`./gradlew assembleDebug` 在本地已多次通过。
-- 第一到第三轮的主要能力已经接上：
-  - App Shell 与一级导航
-  - 课表总览双视图
-  - 课程 / 时间段 / 提醒任务编辑
+- 当前 Android 主线已经从“基础雏形”推进到“文档化课表工作台”。
+- `./gradlew assembleDebug` 在提交后已再次通过。
+- 当前可运行基线仍然是：
+  - `SharedPreferences + JSON + StateFlow`
+  - `ScheduleRepository`
+  - `ScheduleStore`
+  - `ScheduleDocument`
+- 最近一轮的三次提交已经分别收口了：
+  - 文档存储、撤回 / 重做、导入导出、提醒编排
+  - 自适应壳层、动态主题、课表总览重构
+  - 课程 / 时间段 / 提醒编辑流增强
+
+## 最近三次提交
+
+1. `b698c85` `feat(android): add document schedule store and reminder orchestration`
+2. `7311067` `feat(android): add adaptive shell and dynamic schedule overview`
+3. `380c697` `feat(android): improve course, slot and task editor flows`
+
+## 当前已确认的主能力
+
+- 一级导航已经扩展为：
+  - `课表`
+  - `编辑`
+  - `预设`
+  - `个性化`
+  - `设置`
+- 课表总览已经具备：
+  - 周视图
+  - 列表视图
+  - 周次 / 单双周状态提示
+  - 课程复制 / 剪切 / 粘贴
+  - 撤回 / 重做入口能力
+- 编辑流已经具备：
+  - 课程颜色样式
+  - 单双周
+  - 课程级时间覆盖
   - 内联创建时间段
-  - 单双周与课程级时间覆盖
-  - 课表尺寸配置
-  - 撤回 / 重做
-  - 个性化 / 预设 / 导入导出
-  - 通知 / 日历提醒平台接线
-- 当前更需要做的是 UI 收口和设备级回归，不建议马上开第四轮新能力。
+  - 提醒任务课程选择与提醒方式选择
+- 主题与设置已经具备：
+  - 个性化主题编辑
+  - 背景 / 字体 / 尺寸配置
+  - 主题与课程模板预设
+  - 文件与剪贴板导入导出
+- 提醒平台已经具备：
+  - 通知调度结构
+  - 精确定时能力判断
+  - 日历事件写入与同步结构
+  - 开机重建入口
+
+## 当前更需要做的事情
+
+当前不建议再把精力放在“快速扩第四轮能力”上，下一轮更应该做：
+
+- 模拟器或真机回归
+- UI 细节收口
+- 交互点按验证
+- 提醒平台设备级验证
 
 ## Agent 分工约定
 
@@ -29,124 +73,93 @@
 
 ### 当前建议职责
 
-- `agent1`：主页面与课表结构调整。
-  - 重点负责 `ScheduleOverviewScreen.kt` 这类核心主路径页面。
-  - 适合处理课表网格尺寸、头部信息压缩、主视图排版、可读性问题。
+- `agent1`：主页面与课表结构收口。
+  - 重点负责 `ScheduleOverviewScreen.kt`。
+  - 适合处理网格尺寸、头部密度、课程格可读性、宽屏效率。
 - `agent2`：壳层与导航表现修复。
-  - 重点负责 `ScheduleAppShell.kt`、`ScheduleNavGraph.kt` 一类壳层文件。
-  - 适合处理底部导航、宽屏适配、选中态、栏高、图标与标签表现。
-- `agent3`：个性化 / 预设 / 设置的信息架构与页面整理。
-  - 重点负责 `PersonalizationScreens.kt`、`PersonalizationComponents.kt`。
-  - 适合处理折叠分组、二级结构、实时预览布局、页面减压。
+  - 重点负责 `ScheduleAppShell.kt`、`ScheduleNavGraph.kt`。
+  - 适合处理底部导航、宽屏适配、选中态、栏高和标签表现。
+- `agent3`：个性化 / 预设 / 设置的信息架构收口。
+  - 重点负责 `PersonalizationScreens.kt`、`PersonalizationComponents.kt`、相关 viewmodel。
+  - 适合处理折叠结构、预览稳定性、页面减压、导入导出体验。
 - `agent4`：编辑页与提醒页交互修复。
-  - 重点负责 `TaskSettingsScreen.kt`、编辑页选择器、下拉菜单、回填链路。
-  - 适合处理组件交互不稳定、表单项可选性、说明文案收口。
-- `agent5`：集成与收尾。
+  - 重点负责 `CourseEditorScreen.kt`、`TimeSlotEditorScreen.kt`、`TaskSettingsScreen.kt`。
+  - 适合处理表单选择器、回填链路、点按反馈、文案收口。
+- `agent5`：集成与验收。
   - 负责吸收前 1 到 4 的主版本。
-  - 负责做编译验证、冲突收口、文案清理、风险回归点整理。
+  - 负责编译验证、冲突收口、回归清单整理、文档同步。
 
-### 明天如果继续下发任务，建议保持的方式
+### 下发任务时建议保持的方式
 
-- 不要让多个 agent 同时改同一页面的大块结构。
-- 优先按“每个 agent 一个明确写入边界”分配。
-- `agent5` 不要重做主版本，只负责合并、修补和验收。
-
-## 今天确认过的最新处理方向
-
-### 1. 课表页首屏压缩
-
-- `ScheduleOverviewScreen.kt` 已按最近一轮方案收紧顶部结构。
-- 方向是：
-  - 标题保留 `课表`
-  - 顶部状态改成紧凑信息条
-  - 周视图 / 列表视图切换保留，但不再用大卡片承载
-  - 主课表区域优先吃剩余空间
-- 目标是把首屏更多高度还给课程网格，而不是说明区。
-
-### 2. 底部导航视觉修复
-
-- `ScheduleAppShell.kt` 最近一轮已针对底部导航选中态做收口。
-- 问题来源是默认 `NavigationBarItem` 选中背景在当前高度与间距下容易出现顶部被裁切的视觉问题。
-- 当前方向是改成可控的图标圆底选中态，而不是继续依赖默认 indicator。
-
-### 3. 提醒页选择器稳定性
-
-- `TaskSettingsScreen.kt` 的“课程选择”和“提醒方式”此前存在不可选问题。
-- 最近一轮方案已把它们收口到更标准的可展开选择器路径，而不是手写点击拦截式假下拉。
-- 这块目前以“编译通过 + 代码链路核对”为主，仍需要设备级点击回归。
-
-### 4. 个性化 / 预设 / 设置信息密度
-
-- `PersonalizationScreens.kt`、`PersonalizationComponents.kt` 已开始往折叠分组和更稳定预览结构收口。
-- 方向已经明确：
-  - 首屏减少大段说明
-  - 复杂配置折叠收起
-  - 实时预览不要再硬塞满表格
-- 但从实际体验反馈看，视觉拥挤问题还没有完全结束。
+- 不要让多个 agent 同时改同一个页面的大块结构。
+- 优先按文件边界分配写入范围。
+- `agent5` 不要重做主版本，只负责集成、回归、验收与补文档。
 
 ## 当前仍未完全收口的问题
 
 ### 第一优先级
 
-- 底部导航虽然已改过，但需要真机或模拟器确认选中圆底是否完全不裁切。
-- 课表页顶部虽然已经压缩，但还需要看实际设备上是否真的把主要空间还给了网格。
-- 课表页仍要继续关注字体遮挡、课表格子可读性和宽屏手机下的横向展示效率。
+- 课表页需要实际设备确认：
+  - 首屏空间是否真的还给了主网格
+  - 格子高度是否足够承载课程信息
+  - 宽屏下是否真的提升了横向效率
+- 底部导航需要确认选中态是否彻底不裁切。
+- 课程复制 / 剪切 / 粘贴和撤回 / 重做需要做真实操作回归。
 
 ### 第二优先级
 
-- 个性化页实时预览此前出现过错位，需要继续看不同宽度下是否稳定。
-- 预设 / 个性化 / 设置 目前虽然已开始折叠分组，但视觉上仍可能偏拥挤，后续仍可继续拆二级页或进一步减首屏密度。
-- 提醒设置页需要实际点击验证：
+- `TaskSettingsScreen.kt` 需要验证：
   - 课程选择是否稳定展开
   - 提醒方式是否稳定展开
   - 编辑既有提醒时是否能正确回填
+- `PersonalizationScreens.kt` 需要验证：
+  - 实时预览是否还会错位
+  - 折叠结构是否真的减轻首屏密度
+- 导入导出需要至少实际走一遍：
+  - 文件包导出
+  - 文件包导入
+  - 剪贴板分享包导入导出
 
 ### 第三优先级
 
-- 内置预设功能虽然已有结构，但产品完成度还不算最终版，后续仍要继续补真实内容和交互。
-- 自定义图标目前未引入，导航先使用 Material Icons 作为临时稳定方案即可。
+- 通知、精确定时、日历写入虽然已接线，但仍缺设备级结论。
+- 内置预设和课程模板预设还可以继续补内容完成度。
 
-## 明日建议处理顺序
+## 下一轮建议处理顺序
 
-1. 先在模拟器或真机回归 `课表` 首屏和 `底部导航`，确认视觉问题是否已实际改善。
-2. 如果课表首屏仍显拥挤，继续收紧 `ScheduleOverviewScreen.kt`：
-   - 进一步压缩头部信息
-   - 继续缩减非核心提示
-   - 优先保证网格和课程文字可读性
-3. 回归 `TaskSettingsScreen.kt` 的两个选择器，确认不是“代码上像修了，设备上还是别扭”。
-4. 回归 `PersonalizationScreens.kt` 与 `PersonalizationComponents.kt`：
-   - 看实时预览是否还错位
-   - 看折叠结构是否已经足够减压
-5. 如果前三项通过，再继续做内置预设完善或进一步的页面美化。
+1. 先在模拟器或真机回归 `课表` 与 `底部导航`。
+2. 如果周视图仍显拥挤，继续收紧 `ScheduleOverviewScreen.kt`：
+   - 压缩非核心提示
+   - 优先保证课程格信息可读
+   - 继续调整自适应尺寸策略
+3. 回归 `TaskSettingsScreen.kt` 的选择器和回填链路。
+4. 回归 `PersonalizationScreens.kt` 与导入导出流程。
+5. 如果前四项通过，再继续打磨预设内容或提醒平台细节。
 
-## 明日建议下发方式
+## 下一轮建议下发方式
 
-如果明天继续按 agent 拆任务，建议如下：
+- `agent1`：只改 `ScheduleOverviewScreen.kt`。
+- `agent2`：只改 `ScheduleAppShell.kt` 与 `ScheduleNavGraph.kt`。
+- `agent3`：只改 `PersonalizationScreens.kt`、`PersonalizationComponents.kt`、导入导出相关 viewmodel。
+- `agent4`：只改 `CourseEditorScreen.kt`、`TimeSlotEditorScreen.kt`、`TaskSettingsScreen.kt`。
+- `agent5`：负责编译、回归、文案复查、文档同步，不直接重做前四者主结构。
 
-- `agent1`：只改 `ScheduleOverviewScreen.kt`，继续压课表页头部并放大主网格。
-- `agent2`：只改 `ScheduleAppShell.kt`，继续收口底部导航选中态和栏高细节。
-- `agent3`：只改 `PersonalizationScreens.kt` 与 `PersonalizationComponents.kt`，继续减压个性化 / 预设 / 设置三页。
-- `agent4`：只改 `TaskSettingsScreen.kt`，继续修提醒页选择器、回填和可点击反馈。
-- `agent5`：负责集成、编译、文案复查、回归清单整理，不直接重做前四者主结构。
-
-## 明天优先看的文件
+## 下一轮优先看的文件
 
 - `apps/android/app/src/main/java/com/miaom/schedule/ui/screen/ScheduleOverviewScreen.kt`
 - `apps/android/app/src/main/java/com/miaom/schedule/ui/navigation/ScheduleAppShell.kt`
 - `apps/android/app/src/main/java/com/miaom/schedule/ui/screen/TaskSettingsScreen.kt`
 - `apps/android/app/src/main/java/com/miaom/schedule/ui/screen/PersonalizationScreens.kt`
-- `apps/android/app/src/main/java/com/miaom/schedule/ui/component/PersonalizationComponents.kt`
+- `apps/android/app/src/main/java/com/miaom/schedule/platform/scheduler/ReminderOrchestrator.kt`
 
-## 明天开工前建议
+## 下一轮开工前建议
 
-按当前项目的稳定工作顺序继续：
-
-1. 先读上面几个文件的真实现状，不只看 agent 摘要。
+1. 先读上面几个文件的真实现状，不只看旧摘要。
 2. 先跑 `apps/android` 下的 `./gradlew assembleDebug`。
-3. 先做 UI 收口和回归，不急着开第四轮新功能。
+3. 先做回归和收口，不急着再开大功能。
 4. 改完后再次编译，再做模拟器或真机点按验证。
 
 ## 备注
 
-- 当前很多近期结论来自“编译通过 + 代码路径核对 + 用户局部实测”的组合，不等于所有主路径都已经做过完整设备级验收。
-- 后续每次进入新一轮前，优先确认当前分支工作区改动边界，避免多轮 agent 改动继续叠加导致收口困难。
+- 当前很多结论来自“编译通过 + 代码路径核对 + 提交整理”，不等于所有主路径都已做完整设备验收。
+- 后续每次再进入新一轮前，优先确认当前工作区边界，避免多轮 agent 改动继续叠加导致收口困难。

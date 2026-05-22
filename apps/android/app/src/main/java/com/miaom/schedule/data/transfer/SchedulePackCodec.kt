@@ -324,6 +324,7 @@ object SchedulePackCodec {
                 .put("solidColorHex", document.themeConfig.background.solidColorHex)
                 .put("imageReference", document.themeConfig.background.imageReference)
                 .put("blurRadiusDp", document.themeConfig.background.blurRadiusDp)
+                .put("imageDisplayMode", document.themeConfig.background.imageDisplayMode)
             )
             .put("font", JSONObject()
                 .put("builtInFontId", document.themeConfig.font.builtInFontId)
@@ -366,7 +367,9 @@ object SchedulePackCodec {
             mode = json?.optString("mode", BackgroundConfig().mode) ?: BackgroundConfig().mode,
             solidColorHex = json?.optString("solidColorHex", BackgroundConfig().solidColorHex) ?: BackgroundConfig().solidColorHex,
             imageReference = json?.optString("imageReference").orEmpty(),
-            blurRadiusDp = json?.optDouble("blurRadiusDp", 18.0)?.toFloat() ?: 18f
+            blurRadiusDp = json?.optDouble("blurRadiusDp", 18.0)?.toFloat() ?: 18f,
+            imageDisplayMode = json?.optString("imageDisplayMode", BackgroundConfig().imageDisplayMode)
+                ?: BackgroundConfig().imageDisplayMode
         )
         fun parseFont(json: JSONObject?) = FontConfig(
             builtInFontId = json?.optString("builtInFontId", FontConfig().builtInFontId) ?: FontConfig().builtInFontId,
@@ -578,6 +581,7 @@ object SchedulePackCodec {
                 .put("solidColorHex", snapshot.background.solidColorHex)
                 .put("imageReference", snapshot.background.imageReference)
                 .put("blurRadiusDp", snapshot.background.blurRadiusDp)
+                .put("imageDisplayMode", snapshot.background.imageDisplayMode)
             )
             .put("font", JSONObject()
                 .put("builtInFontId", snapshot.font.builtInFontId)

@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -20,6 +22,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -83,7 +86,7 @@ fun ScheduleSectionScreen(
                 item {
                     SectionCard(
                         title = "还没有课程安排",
-                        body = "可以先补充时间段和课程信息，之后再回到这里查看整周安排。"
+                        body = "先添加课程和时间段，再查看整周安排。"
                     ) {
                         Button(
                             onClick = onOpenCourses,
@@ -113,11 +116,11 @@ fun ScheduleSectionScreen(
                             Text(
                                 text = "${shellWeekdayLabels.getOrElse(course.dayOfWeek - 1) { "周${course.dayOfWeek}" }} · " +
                                     (slot?.let { "${it.label} ${it.startTime}-${it.endTime}" }
-                                        ?: "时间段待补充"),
+                                        ?: "时间待定"),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "${course.teacher.ifBlank { "任课教师待补充" }} · ${course.location.ifBlank { "上课地点待补充" }}",
+                                text = "${course.teacher.ifBlank { "教师未填" }} · ${course.location.ifBlank { "地点未填" }}",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -128,7 +131,7 @@ fun ScheduleSectionScreen(
             item {
                 SectionCard(
                     title = "常用入口",
-                    body = "课程、时间段和提醒任务都可以从这里继续维护。"
+                    body = "继续编辑课程、时间段和提醒。"
                 ) {
                     Button(
                         onClick = onOpenCourses,
@@ -164,6 +167,7 @@ fun EditSectionScreen(
     val repository = (LocalContext.current.applicationContext as ScheduleApplication)
         .appContainer
         .scheduleRepository
+    val isTwoColumn = LocalConfiguration.current.screenWidthDp >= 700
     val courses by repository.observeCourses().collectAsStateWithLifecycle(emptyList())
     val slots by repository.observeTimeSlots().collectAsStateWithLifecycle(emptyList())
     val tasks by repository.observeReminderTasks().collectAsStateWithLifecycle(emptyList())
@@ -182,36 +186,69 @@ fun EditSectionScreen(
         ) {
             item {
                 SectionCard(
-                    title = "数据维护",
+                    title = "当前数据",
                     body = "当前已有 ${courses.size} 门课程、${slots.size} 个时间段、${tasks.size} 条提醒任务。"
                 )
             }
 
             item {
-                ManagementEntryCard(
-                    title = "课程编辑",
-                    body = "维护课程名称、教师、地点、颜色和上课规则。",
-                    buttonLabel = "进入课程编辑",
-                    onClick = onOpenCourses
-                )
-            }
-
-            item {
-                ManagementEntryCard(
-                    title = "时间段编辑",
-                    body = "维护节次名称以及上下课时间，供课程和提醒任务复用。",
-                    buttonLabel = "进入时间段编辑",
-                    onClick = onOpenTimeSlots
-                )
-            }
-
-            item {
-                ManagementEntryCard(
-                    title = "定时任务设置",
-                    body = "为课程配置提醒方式、提前时间、权限状态和启用状态。",
-                    buttonLabel = "进入定时任务设置",
-                    onClick = onOpenTasks
-                )
+                if (isTwoColumn) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            ManagementEntryCard(
+                                title = "课程编辑",
+                                body = "课程名称、教师、地点和上课规则。",
+                                buttonLabel = "进入课程编辑",
+                                onClick = onOpenCourses,
+                                modifier = Modifier.weight(1f)
+                            )
+                            ManagementEntryCard(
+                                title = "时间段编辑",
+                                body = "节次名称与上下课时间。",
+                                buttonLabel = "进入时间段编辑",
+                                onClick = onOpenTimeSlots,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            ManagementEntryCard(
+                                title = "定时任务设置",
+                                body = "提醒方式、提前时间和启用状态。",
+                                buttonLabel = "进入定时任务设置",
+                                onClick = onOpenTasks,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        ManagementEntryCard(
+                            title = "课程编辑",
+                            body = "课程名称、教师、地点和上课规则。",
+                            buttonLabel = "进入课程编辑",
+                            onClick = onOpenCourses
+                        )
+                        ManagementEntryCard(
+                            title = "时间段编辑",
+                            body = "节次名称与上下课时间。",
+                            buttonLabel = "进入时间段编辑",
+                            onClick = onOpenTimeSlots
+                        )
+                        ManagementEntryCard(
+                            title = "定时任务设置",
+                            body = "提醒方式、提前时间和启用状态。",
+                            buttonLabel = "进入定时任务设置",
+                            onClick = onOpenTasks
+                        )
+                    }
+                }
             }
         }
     }
@@ -267,9 +304,14 @@ private fun ManagementEntryCard(
     title: String,
     body: String,
     buttonLabel: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    SectionCard(title = title, body = body) {
+    SectionCard(
+        title = title,
+        body = body,
+        modifier = modifier
+    ) {
         Button(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth()
@@ -283,9 +325,10 @@ private fun ManagementEntryCard(
 private fun SectionCard(
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
     content: @Composable (ColumnScope.() -> Unit)? = null
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)

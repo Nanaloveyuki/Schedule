@@ -423,7 +423,8 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
             mode = jsonObject.optString("mode", BackgroundConfig().mode),
             solidColorHex = jsonObject.optString("solidColorHex", BackgroundConfig().solidColorHex),
             imageReference = jsonObject.optString("imageReference"),
-            blurRadiusDp = jsonObject.optDouble("blurRadiusDp", 18.0).toFloat()
+            blurRadiusDp = jsonObject.optDouble("blurRadiusDp", 18.0).toFloat(),
+            imageDisplayMode = jsonObject.optString("imageDisplayMode", BackgroundConfig().imageDisplayMode)
         )
     }
 
@@ -707,6 +708,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
         .put("solidColorHex", config.solidColorHex)
         .put("imageReference", config.imageReference)
         .put("blurRadiusDp", config.blurRadiusDp)
+        .put("imageDisplayMode", config.imageDisplayMode)
 
     private fun fontConfigToJson(config: FontConfig): JSONObject = JSONObject()
         .put("builtInFontId", config.builtInFontId)

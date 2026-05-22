@@ -50,7 +50,6 @@ import com.miaom.schedule.ui.component.CourseColorEditor
 import com.miaom.schedule.ui.component.CourseColorEditorMode
 import com.miaom.schedule.ui.component.CourseColorEditorState
 import com.miaom.schedule.ui.component.EditorHistoryActions
-import com.miaom.schedule.ui.component.EditorInlineNote
 import com.miaom.schedule.ui.component.EditorSectionCard
 import com.miaom.schedule.ui.component.TimeSlotFormFields
 import com.miaom.schedule.ui.viewmodel.CourseEditorViewModel
@@ -226,8 +225,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "周设置",
-                    subtitle = "设置第 1 周的周一日期，单双周会按这个锚点推算。"
+                    title = "周设置"
                 ) {
                     OutlinedTextField(
                         value = week1MondayDate,
@@ -236,7 +234,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                             viewModel.updateWeek1MondayDate(it)
                         },
                         label = { Text("第1周周一日期") },
-                        supportingText = { Text("按 YYYY-MM-DD 格式填写。") },
+                        supportingText = { Text("YYYY-MM-DD") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -245,8 +243,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "基本信息",
-                    subtitle = if (editingCourseId == null) "填写课程名称、教师和地点。" else "正在修改已保存课程。"
+                    title = if (editingCourseId == null) "基本信息" else "编辑课程"
                 ) {
                     OutlinedTextField(
                         value = name,
@@ -274,8 +271,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "排课规则",
-                    subtitle = "选择上课日、单双周和时间模板。"
+                    title = "排课规则"
                 ) {
                     OutlinedTextField(
                         value = dayOfWeek.toString(),
@@ -284,7 +280,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = { Text("输入 1-7，对应周一到周日。") }
+                        supportingText = { Text("1-7 对应周一到周日") }
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         WeekParity.entries.forEach { parity ->
@@ -308,7 +304,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("时间段模板") },
-                            placeholder = { Text(if (slots.isEmpty()) "暂无可选模板" else "请选择") },
+                            placeholder = { Text(if (slots.isEmpty()) "暂无模板" else "请选择模板") },
                             trailingIcon = {
                                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = slotExpanded && slots.isNotEmpty())
                             },
@@ -317,7 +313,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                                 .fillMaxWidth(),
                             singleLine = true,
                             supportingText = {
-                                Text(if (slots.isEmpty()) "先创建时间段模板。" else "课程默认继承模板时间。")
+                                Text(if (slots.isEmpty()) "先新建模板。" else "默认使用模板时间。")
                             }
                         )
                         DropdownMenu(
@@ -360,17 +356,16 @@ fun CourseEditorScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "课程时间覆盖",
-                    subtitle = "模板不够用时，可以为这门课单独改开始和结束时间。"
+                    title = "单独设置时间"
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("启用课程级时间覆盖", style = MaterialTheme.typography.titleSmall)
+                            Text("启用单独时间", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                text = "关闭时使用模板时间，开启后优先使用这门课的独立时间。",
+                                text = "关闭后使用模板时间。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -391,7 +386,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                             value = overrideStartTime,
                             onValueChange = { overrideStartTime = it },
                             label = { Text("覆盖开始时间") },
-                            placeholder = { Text("例如 08:10") },
+                            placeholder = { Text("08:10") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -399,25 +394,17 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                             value = overrideEndTime,
                             onValueChange = { overrideEndTime = it },
                             label = { Text("覆盖结束时间") },
-                            placeholder = { Text("例如 08:55") },
+                            placeholder = { Text("08:55") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
                     }
-                    EditorInlineNote(
-                        if (useTimeOverride) {
-                            "当前课程会优先使用覆盖时间。"
-                        } else {
-                            "当前课程会沿用所选时间段模板的时间。"
-                        }
-                    )
                 }
             }
 
             item {
                 EditorSectionCard(
-                    title = "课程颜色",
-                    subtitle = "颜色绑定到这门课程实例，修改后会直接反映到真实课表。"
+                    title = "课程颜色"
                 ) {
                     CourseColorEditor(
                         state = courseColorState,
@@ -430,8 +417,7 @@ fun CourseEditorScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "当前安排",
-                    subtitle = "确认单双周、模板时间和覆盖时间的最终效果。"
+                    title = "当前安排"
                 ) {
                     Text(
                         text = buildCurrentSummary(
@@ -443,9 +429,6 @@ fun CourseEditorScreen(onBack: () -> Unit) {
                             overrideEndTime = overrideEndTime
                         ),
                         style = MaterialTheme.typography.titleSmall
-                    )
-                    EditorInlineNote(
-                        text = "课表格子宽度范围 ${uiState.gridSizing.gridMinCellWidthDp.toInt()}-${uiState.gridSizing.gridMaxCellWidthDp.toInt()}dp，高度范围 ${uiState.gridSizing.gridMinCellHeightDp.toInt()}-${uiState.gridSizing.gridMaxCellHeightDp.toInt()}dp。"
                     )
                 }
             }

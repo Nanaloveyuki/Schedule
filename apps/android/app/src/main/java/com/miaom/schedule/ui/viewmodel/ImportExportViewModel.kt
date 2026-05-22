@@ -84,9 +84,9 @@ class ImportExportViewModel(
             latestExport = export,
             latestClipboardPayload = export.clipboardText,
             lastStatus = if (resolvedMethod == ExportTransport.FilePack) {
-                "已准备好文件导出内容。"
+                "文件已准备好。"
             } else {
-                "已准备好剪贴板分享内容。"
+                "分享文本已准备好。"
             }
         )
         return export
@@ -104,10 +104,10 @@ class ImportExportViewModel(
                 document
             }.onSuccess {
                 state.value = state.value.copy(
-                    lastStatus = "已从剪贴板导入 ${it.courseEntries.size} 门课程、${it.timeSlotTemplates.size} 个时间段和 ${it.reminderRules.size} 条提醒。"
+                    lastStatus = "已导入 ${it.courseEntries.size} 门课程、${it.timeSlotTemplates.size} 个时间段和 ${it.reminderRules.size} 条提醒。"
                 )
             }.onFailure {
-                state.value = state.value.copy(lastStatus = "剪贴板内容无法识别，请检查后重试。")
+                state.value = state.value.copy(lastStatus = "无法识别这段文本。")
             }
         }
     }
@@ -124,7 +124,7 @@ class ImportExportViewModel(
                     lastStatus = "已导入 ${it.courseEntries.size} 门课程、${it.timeSlotTemplates.size} 个时间段和 ${it.reminderRules.size} 条提醒。"
                 )
             }.onFailure {
-                state.value = state.value.copy(lastStatus = "文件内容无法导入，请确认选择了有效的课表包。")
+                state.value = state.value.copy(lastStatus = "无法导入这个文件。")
             }
         }
     }

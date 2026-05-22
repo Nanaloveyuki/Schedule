@@ -178,14 +178,13 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "权限与能力",
-                    subtitle = "提醒通道会严格按你当前选择的能力来工作。"
+                    title = "权限"
                 ) {
                     EditorInlineNote(
                         text = if (notificationReady) {
-                            if (notificationPermissionRequired) "应用内通知已准备好。" else "当前系统版本不需要单独授予通知权限。"
+                            if (notificationPermissionRequired) "通知已开启。" else "当前系统无需单独开启通知。"
                         } else {
-                            "应用内通知还未获得通知权限。"
+                            "通知未开启。"
                         }
                     )
                     OutlinedButton(
@@ -199,12 +198,12 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                     EditorInlineNote(
                         text = if (capabilities.calendarPermissionsGranted) {
                             if (capabilities.writableCalendarAvailable) {
-                                "系统日历可用，保存后会把未来课程事件同步到 ${capabilities.writableCalendarName ?: "默认日历"}。"
+                                "将写入 ${capabilities.writableCalendarName ?: "默认日历"}。"
                             } else {
-                                "已获得日历权限，但设备上暂未发现可写日历。"
+                                "未找到可写日历。"
                             }
                         } else {
-                            "系统日历事件还未获得日历访问权限。"
+                            "日历权限未开启。"
                         }
                     )
                     OutlinedButton(
@@ -218,9 +217,9 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                     if (exactAlarmSupported) {
                         EditorInlineNote(
                             text = if (capabilities.exactAlarmPermissionGranted) {
-                                "精确定时已可用，仅对应用内通知生效。"
+                                "精确定时可用。"
                             } else {
-                                "精确定时暂未允许；只有应用内通知在启用精确定时后才需要到系统设置中开启。"
+                                "精确定时未开启。"
                             }
                         )
                         OutlinedButton(
@@ -236,8 +235,7 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "提醒对象",
-                    subtitle = if (editingTaskId == null) "为已有课程选择提醒对象。" else "正在修改已保存提醒。"
+                    title = if (editingTaskId == null) "提醒对象" else "编辑提醒"
                 ) {
                     ExposedDropdownMenuBox(
                         expanded = courseExpanded && courses.isNotEmpty(),
@@ -253,7 +251,7 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                             readOnly = true,
                             enabled = courses.isNotEmpty(),
                             label = { Text("课程") },
-                            placeholder = { Text(if (courses.isEmpty()) "暂无可选课程" else "请选择") },
+                            placeholder = { Text(if (courses.isEmpty()) "暂无课程" else "请选择课程") },
                             trailingIcon = {
                                 ExposedDropdownMenuDefaults.TrailingIcon(
                                     expanded = courseExpanded && courses.isNotEmpty()
@@ -266,9 +264,9 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                             supportingText = {
                                 Text(
                                     when {
-                                        courses.isEmpty() -> "还没有课程，请先到“课程编辑”页新增课程。"
+                                        courses.isEmpty() -> "先添加课程。"
                                         selectedCourse != null -> formatCourseSelectionSupportText(selectedCourse)
-                                        else -> "请选择要绑定提醒的课程。"
+                                        else -> "选择要提醒的课程。"
                                     }
                                 )
                             }
@@ -294,8 +292,7 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "提醒时机",
-                    subtitle = "设置提前时间、启用状态和定时方式。"
+                    title = "提醒时间"
                 ) {
                     OutlinedTextField(
                         value = minutesBefore.toString(),
@@ -304,20 +301,20 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = { Text("课程开始前多久触发提醒。") }
+                        supportingText = { Text("课程开始前") }
                     )
                     EditorSwitchRow(
                         title = "启用提醒",
-                        description = "关闭后保留这条提醒配置，但不会参与调度。",
+                        description = "关闭后不提醒。",
                         checked = enabled,
                         onCheckedChange = { enabled = it }
                     )
                     EditorSwitchRow(
                         title = "精确定时",
                         description = if (exactAlarmEffectiveForCurrentChannel) {
-                            "允许时会按精确闹钟安排应用内通知；不允许时会退回普通调度。"
+                            "尽量按时提醒。"
                         } else {
-                            "系统日历事件不使用精确定时，这里会保留为关闭。"
+                            "日历事件不使用。"
                         },
                         checked = exact,
                         onCheckedChange = { exact = if (exactAlarmEffectiveForCurrentChannel) it else false },
@@ -328,8 +325,7 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
 
             item {
                 EditorSectionCard(
-                    title = "提醒方式",
-                    subtitle = "选择提醒的正式通道，系统不会替你擅自切换。"
+                    title = "提醒方式"
                 ) {
                     ExposedDropdownMenuBox(
                         expanded = channelExpanded,
@@ -348,7 +344,7 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                                 .fillMaxWidth(),
                             singleLine = true,
                             supportingText = {
-                                Text("展开后选择正式使用的提醒通道。")
+                                Text("选择提醒方式。")
                             }
                         )
                         DropdownMenu(
@@ -377,15 +373,15 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                     EditorInlineNote(
                         text = when (channel) {
                             ReminderChannel.InAppNotification -> if (notificationReady) {
-                                "保存后会安排应用内通知。"
+                                "保存后发送应用内通知。"
                             } else {
-                                "保存后会保留这条规则，获得通知权限后再开始调度。"
+                                "保存后等待通知权限。"
                             }
 
                             ReminderChannel.SystemCalendar -> if (capabilities.calendarPermissionsGranted && capabilities.writableCalendarAvailable) {
-                                "保存后会按当前规则同步未来课程事件到系统日历。"
+                                "保存后写入系统日历。"
                             } else {
-                                "保存后会保留这条规则，待日历可用后再写入系统日历。"
+                                "保存后等待日历可用。"
                             }
                         }
                     )
@@ -409,7 +405,7 @@ fun TaskSettingsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = canSave
                     ) {
-                        Text(if (editingTaskId == null) "保存提醒任务" else "保存提醒修改")
+                        Text(if (editingTaskId == null) "保存提醒" else "保存修改")
                     }
                     if (editingTaskId != null) {
                         TextButton(onClick = ::resetForm) {
@@ -457,14 +453,14 @@ private fun formatCourseSelectionLabel(course: Course): String {
             "${course.effectiveStartTime}-${course.effectiveEndTime}"
         }
 
-        else -> "时间待补充"
+        else -> "时间待定"
     }
     return "${course.name} · $weekday · $time"
 }
 
 private fun formatCourseSelectionSupportText(course: Course): String {
     val teacherOrLocation = course.teacher.ifBlank { course.location }.ifBlank { "未填写教师和地点" }
-    return "当前课程：$teacherOrLocation"
+    return teacherOrLocation
 }
 
 @Composable

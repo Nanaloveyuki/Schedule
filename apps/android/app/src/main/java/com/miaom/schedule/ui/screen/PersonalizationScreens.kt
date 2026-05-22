@@ -3,6 +3,8 @@ package com.miaom.schedule.ui.screen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -11,9 +13,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.miaom.schedule.ScheduleApplication
+import com.miaom.schedule.domain.model.BackgroundImageDisplayMode
 import com.miaom.schedule.domain.model.BackgroundMode
 import com.miaom.schedule.domain.model.BuiltInFontOption
 import com.miaom.schedule.domain.model.ExportTransport
@@ -65,6 +70,7 @@ import java.io.ByteArrayInputStream
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
+    val context = LocalContext.current
     val appContainer = (LocalContext.current.applicationContext as ScheduleApplication).appContainer
     val viewModel: PersonalizationViewModel = viewModel(
         factory = PersonalizationViewModel.factory(appContainer.scheduleStore)
@@ -76,6 +82,14 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
     var backgroundExpanded by rememberSaveable { mutableStateOf(false) }
     var fontExpanded by rememberSaveable { mutableStateOf(false) }
     var sizingExpanded by rememberSaveable { mutableStateOf(false) }
+    val backgroundImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            persistReadPermission(context, uri)
+            viewModel.applyImportedBackgroundImageReference(uri.toString())
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -106,17 +120,16 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "主题",
-                    subtitle = "主色与基础表面层级。",
                     summary = themeSectionSummary(themeConfig),
                     expanded = themeExpanded,
                     onExpandedChange = { themeExpanded = it }
                 ) {
-                    SettingsSubsection(title = "颜色令牌", description = "先决定主要识别色。") {
+                    SettingsSubsection(title = "颜色") {
                         TokenEditorRow("主色", themeConfig.colorTokens.primaryHex) { viewModel.updateColorToken("primary", it) }
                         TokenEditorRow("辅助色", themeConfig.colorTokens.secondaryHex) { viewModel.updateColorToken("secondary", it) }
                         TokenEditorRow("强调色", themeConfig.colorTokens.tertiaryHex) { viewModel.updateColorToken("tertiary", it) }
                     }
-                    SettingsSubsection(title = "表面层级", description = "控制背景和分隔感。") {
+                    SettingsSubsection(title = "表面") {
                         TokenEditorRow("背景", themeConfig.colorTokens.backgroundHex) { viewModel.updateColorToken("background", it) }
                         TokenEditorRow("表面", themeConfig.colorTokens.surfaceHex) { viewModel.updateColorToken("surface", it) }
                         TokenEditorRow("轮廓", themeConfig.colorTokens.outlineHex) { viewModel.updateColorToken("outline", it) }
@@ -126,12 +139,11 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "背景",
-                    subtitle = "统一课表和列表的底色来源。",
                     summary = backgroundSectionSummary(themeConfig),
                     expanded = backgroundExpanded,
                     onExpandedChange = { backgroundExpanded = it }
                 ) {
-                    SettingsSubsection(title = "背景样式", description = "先选模式，再补颜色。") {
+                    SettingsSubsection(title = "背景样式") {
                         FlowChipRow {
                             BackgroundMode.entries.forEach { mode ->
                                 FilterChip(
@@ -145,15 +157,44 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
                             viewModel.updateBackgroundColor(it)
                         }
                     }
-                    SettingsSubsection(title = "图片与模糊", description = "图片模式下可直接复用本地引用。") {
-                        OutlinedTextField(
-                            value = themeConfig.background.imageReference,
-                            onValueChange = viewModel::updateBackgroundImageReference,
-                            label = { Text("图片引用") },
-                            placeholder = { Text("例如 /storage/emulated/0/Pictures/schedule.jpg") },
+                    SettingsSubsection(title = "图片与模糊") {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = themeConfig.background.imageReference,
+                                onValueChange = viewModel::updateBackgroundImageReference,
+                                label = { Text("图片引用") },
+                                placeholder = { Text("content:// 或 /storage/emulated/0/Pictures/schedule.jpg") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = { backgroundImageLauncher.launch(arrayOf("image/*")) },
+                                modifier = Modifier
+                                    .widthIn(min = 88.dp)
+                                    .fillMaxHeight()
+                            ) {
+                                Text("导入")
+                            }
+                        }
+                        EditorInlineNote("优先使用系统文件选择器导入图片；也可以继续手动填写路径或 URI。")
+                        SettingsSubsection(
+                            title = "图片展示方式",
+                            description = "切换后会立即应用到当前背景图，并随配置一起保存。"
+                        ) {
+                            FlowChipRow {
+                                BackgroundImageDisplayMode.entries.forEach { displayMode ->
+                                    FilterChip(
+                                        selected = themeConfig.background.imageDisplayMode == displayMode.name,
+                                        onClick = { viewModel.updateBackgroundImageDisplayMode(displayMode) },
+                                        label = { Text(backgroundImageDisplayModeLabel(displayMode)) }
+                                    )
+                                }
+                            }
+                        }
                         Text("模糊强度 ${themeConfig.background.blurRadiusDp.toInt()} dp")
                         Slider(
                             value = themeConfig.background.blurRadiusDp,
@@ -166,7 +207,6 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "字体",
-                    subtitle = "切换内置字体，按需接入自定义字体。",
                     summary = fontSectionSummary(themeConfig),
                     expanded = fontExpanded,
                     onExpandedChange = { fontExpanded = it }
@@ -185,12 +225,7 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("优先自定义字体")
-                            Text(
-                                text = "打开后优先读取下方字体入口。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("优先使用自定义字体")
                         }
                         Switch(
                             checked = themeConfig.font.preferCustomFont,
@@ -216,7 +251,6 @@ fun PersonalizationScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "课表尺寸",
-                    subtitle = "统一维护不同设备上的格子范围。",
                     summary = sizingSectionSummary(themeConfig),
                     expanded = sizingExpanded,
                     onExpandedChange = { sizingExpanded = it }
@@ -285,12 +319,10 @@ fun PresetsScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "内置主题预设",
-                    subtitle = "开箱即用的整套样式。",
-                    summary = "共 ${uiState.builtInThemePresets.size} 套，点按后立即应用。",
+                    summary = "共 ${uiState.builtInThemePresets.size} 套",
                     expanded = builtInExpanded,
                     onExpandedChange = { builtInExpanded = it }
                 ) {
-                    EditorInlineNote("会同步更新主题、背景、字体和课表尺寸。")
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         uiState.builtInThemePresets.groupBy(BuiltInThemePreset::group).forEach { (group, presets) ->
                             SettingsSubsection(title = group) {
@@ -312,8 +344,7 @@ fun PresetsScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "用户主题预设",
-                    subtitle = "把当前样式存成自己的常用方案。",
-                    summary = if (uiState.themeConfig.userPresets.isEmpty()) "还没有保存的主题预设。" else "已保存 ${uiState.themeConfig.userPresets.size} 套常用主题。",
+                    summary = if (uiState.themeConfig.userPresets.isEmpty()) "暂无已保存预设" else "已保存 ${uiState.themeConfig.userPresets.size} 套",
                     expanded = userExpanded,
                     onExpandedChange = { userExpanded = it }
                 ) {
@@ -335,13 +366,13 @@ fun PresetsScreen(onBack: (() -> Unit)? = null) {
                         Text("保存当前主题")
                     }
                     if (uiState.themeConfig.userPresets.isEmpty()) {
-                        EditorInlineNote("先在个性化页调好一套样式，再回来保存。")
+                        EditorInlineNote("先保存一套当前样式。")
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             uiState.themeConfig.userPresets.forEach { preset ->
                                 PresetCard(
                                     title = preset.name,
-                                    description = preset.note.ifBlank { "包含主题、背景、字体和尺寸。" },
+                                    description = preset.note.ifBlank { "主题、背景、字体、尺寸" },
                                     selected = uiState.selectedUserThemePresetId == preset.id,
                                     onApply = { viewModel.applyUserThemePreset(preset.id) }
                                 )
@@ -353,13 +384,12 @@ fun PresetsScreen(onBack: (() -> Unit)? = null) {
             item {
                 EditorExpandableSectionCard(
                     title = "课程模板预设",
-                    subtitle = "把常用课程做成模板，减少重复录入。",
-                    summary = if (uiState.document.courseTemplatePresets.isEmpty()) "还没有课程模板。" else "已保存 ${uiState.document.courseTemplatePresets.size} 个模板。",
+                    summary = if (uiState.document.courseTemplatePresets.isEmpty()) "暂无课程模板" else "已保存 ${uiState.document.courseTemplatePresets.size} 个",
                     expanded = courseTemplateExpanded,
                     onExpandedChange = { courseTemplateExpanded = it }
                 ) {
                     if (uiState.courses.isEmpty()) {
-                        EditorInlineNote("先去课程编辑页准备一门样板课程。")
+                        EditorInlineNote("先添加一门课程。")
                     } else {
                         FlowChipRow {
                             uiState.courses.forEach { course ->
@@ -380,7 +410,7 @@ fun PresetsScreen(onBack: (() -> Unit)? = null) {
                         OutlinedTextField(
                             value = newCourseTemplateNote,
                             onValueChange = { newCourseTemplateNote = it },
-                            label = { Text("模板说明") },
+                            label = { Text("备注") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -401,7 +431,7 @@ fun PresetsScreen(onBack: (() -> Unit)? = null) {
                         }
                     }
                     if (uiState.document.courseTemplatePresets.isEmpty()) {
-                        EditorInlineNote("模板会保留课程名、时间模板和单双周信息。")
+                        EditorInlineNote("保存后可直接套用。")
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             uiState.document.courseTemplatePresets.forEach { preset ->
@@ -496,14 +526,12 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             EditorSectionCard(
-                title = "当前设置",
-                subtitle = "常用动作放前面，细节按需展开。"
+                title = "当前数据"
             ) {
                 EditorInlineNote(transferContentSummary(transferState))
             }
             EditorExpandableSectionCard(
                 title = "导入导出",
-                subtitle = "先处理课表数据，再决定分享方式。",
                 summary = transferContentSummary(transferState),
                 expanded = importExportExpanded,
                 onExpandedChange = { importExportExpanded = it }
@@ -561,7 +589,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
                         onClick = { textImportExpanded = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("展开文本导入")
+                        Text("粘贴文本导入")
                     }
                 } else {
                     OutlinedTextField(
@@ -585,7 +613,6 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
             }
             EditorExpandableSectionCard(
                 title = "默认导出方式",
-                subtitle = "决定分享页优先落在哪种形式。",
                 summary = exportPreferenceSummary(transferState),
                 expanded = defaultExportExpanded,
                 onExpandedChange = { defaultExportExpanded = it }
@@ -606,7 +633,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("记住默认方式")
                         Text(
-                            text = "关闭时，只保留本次手动选择。",
+                            text = "关闭后不再记住。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -619,7 +646,6 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
             }
             EditorExpandableSectionCard(
                 title = "其他偏好",
-                subtitle = "显示方式与课表尺寸统一收在这里。",
                 summary = preferenceSummary(themeConfig),
                 expanded = preferencesExpanded,
                 onExpandedChange = { preferencesExpanded = it }
@@ -640,7 +666,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("动态配色")
                         Text(
-                            text = "开启后优先使用系统动态配色。",
+                            text = "优先使用系统配色。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -761,9 +787,9 @@ private fun transferContentSummary(transferState: ImportExportUiState): String =
 
 private fun exportPreferenceSummary(transferState: ImportExportUiState): String =
     buildString {
-        append("当前默认：")
+        append("默认 ")
         append(exportMethodLabel(transferState.defaultExportMethod))
-        append(if (transferState.rememberDefaultExportMethod) " · 会继续沿用" else " · 仅保留本次")
+        append(if (transferState.rememberDefaultExportMethod) " · 已记住" else " · 不记住")
     }
 
 private fun preferenceSummary(themeConfig: ThemeConfig): String =
@@ -802,7 +828,7 @@ private fun GridSizingEditor(
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("启用自适应缩放")
-            Text("让宽屏手机、折叠屏和平板按可用宽度自动取值。")
+            Text("按屏幕宽度调整大小。")
         }
         Switch(checked = adaptive, onCheckedChange = onAdaptiveChange)
     }
@@ -829,6 +855,22 @@ private fun backgroundModeLabel(mode: BackgroundMode): String = when (mode) {
     BackgroundMode.SolidBlur -> "纯色+模糊"
     BackgroundMode.Image -> "图片"
     BackgroundMode.ImageBlur -> "图片+模糊"
+}
+
+private fun backgroundImageDisplayModeLabel(mode: BackgroundImageDisplayMode): String = when (mode) {
+    BackgroundImageDisplayMode.Fill -> "填充"
+    BackgroundImageDisplayMode.Fit -> "适应"
+    BackgroundImageDisplayMode.Stretch -> "拉伸"
+    BackgroundImageDisplayMode.Crop -> "居中裁剪"
+}
+
+private fun persistReadPermission(context: Context, uri: Uri) {
+    runCatching {
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+    }
 }
 
 private fun fontOptionLabel(option: BuiltInFontOption): String = when (option) {

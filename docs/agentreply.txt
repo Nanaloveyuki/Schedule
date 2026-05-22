@@ -1,0 +1,56 @@
+修改文件
+
+  - apps/android/app/src/main/java/com/miaom/schedule/ui/screen/PersonalizationScreens.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/ui/viewmodel/PersonalizationViewModel.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/ui/theme/Theme.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/domain/model/ScheduleDocument.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/data/repository/PreferencesScheduleRepository.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/data/transfer/SchedulePackCodec.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/ui/screen/ScheduleOverviewScreen.kt
+  - apps/android/app/src/main/java/com/miaom/schedule/ui/screen/ShellSectionScreens.kt
+
+  背景图展示控制
+  新增了 4 个展示控制项：
+
+  - 填充
+  - 适应
+  - 拉伸
+  - 居中裁剪
+
+  个性化页里在“图片与模糊”区域新增了“图片展示方式” chip 组，切换后立即生效。Theme.kt 里把它映射到 ContentScale：
+
+  - 填充 -> FillWidth
+  - 适应 -> Fit
+  - 拉伸 -> FillBounds
+  - 居中裁剪 -> Crop
+
+  配置落点
+  这项配置已经进了完整持久化链路，不是临时 UI 状态：
+
+  - domain model：BackgroundConfig 新增 imageDisplayMode
+  - domain enum：新增 BackgroundImageDisplayMode
+  - normalized()：会校正非法值并保底到 Crop
+  - PreferencesScheduleRepository：JSON 读写已补 imageDisplayMode
+  - SchedulePackCodec：导入导出、主题预设快照都已补 imageDisplayMode
+  - PersonalizationViewModel：新增 updateBackgroundImageDisplayMode(...)
+
+  所以现在导入图片后，切换展示方式能立即看到效果，重启后保留，导入导出也不会丢。
+
+  课表首页顶部
+  ScheduleOverviewScreen.kt 的头部从原先状态 chip 和视图切换混在同一流式结构里，改成了更稳定的两段式：
+
+  - 第一段只放状态 chip，统一按 FlowRow 规则换行
+  - 第二段单独放“视图切换”标题和 周视图 / 列表视图
+
+  这样小屏时也有固定层次，不会再出现视图切换按钮漂在状态 chip 之间、上下错位的情况。
+
+  编辑入口区域
+  ShellSectionScreens.kt 的编辑入口不再依赖不稳定的流式掉行，改成明确策略：
+
+  - 窄屏：单列纵向
+  - 稍宽屏：两列补齐
+
+  具体实现是显式的 Row + Column 结构，不是继续靠 FlowRow 猜换行，所以不会再出现一块宽、一块窄、最后一项掉行不齐的问题。
+
+  assembleDebug
+  已在 apps/android 下运行 .\\gradlew assembleDebug，结果是 BUILD SUCCESSFUL。

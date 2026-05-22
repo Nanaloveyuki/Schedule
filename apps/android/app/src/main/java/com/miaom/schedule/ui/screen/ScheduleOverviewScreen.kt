@@ -2,6 +2,7 @@ package com.miaom.schedule.ui.screen
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
@@ -27,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -60,8 +62,8 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,6 +73,7 @@ import com.miaom.schedule.domain.model.GridSizingConfig
 import com.miaom.schedule.domain.model.ScheduleLayoutMetrics
 import com.miaom.schedule.domain.model.SchedulePresentationCourse
 import com.miaom.schedule.domain.model.TimeSlot
+import com.miaom.schedule.domain.model.displayLabel
 import com.miaom.schedule.domain.model.ensureReadableTextColor
 import com.miaom.schedule.domain.model.resolveMetrics
 import com.miaom.schedule.domain.model.shortLabel
@@ -105,13 +108,14 @@ fun ScheduleOverviewScreen(onBack: (() -> Unit)? = null) {
     val courseMap = remember(document, templatesById) {
         document.courseEntries.associate { entry -> entry.id to entry.toCourse(templatesById[entry.timeSlotTemplateId]) }
     }
+    val presentationCourseMap = remember(courses) { courses.associateBy { it.id } }
     val weekConfig = document.weekConfig
     val gridSizing = document.themeConfig.gridSizing
     val currentWeekIndex = remember(weekConfig.week1MondayDate) { weekConfig.weekIndexFor(LocalDate.now()) }
     val currentParityLabel = remember(weekConfig.week1MondayDate) { weekConfig.parityFor(LocalDate.now()).shortLabel() }
     val todayCourseCount = remember(courses) { courses.count { it.dayOfWeek == LocalDate.now().dayOfWeek.value } }
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
     var viewMode by remember { mutableStateOf(ScheduleViewMode.Week) }
+    var detailCourse by remember { mutableStateOf<SchedulePresentationCourse?>(null) }
     val actionManager = remember { ScheduleCourseActionManager() }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
@@ -217,7 +221,6 @@ fun ScheduleOverviewScreen(onBack: (() -> Unit)? = null) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             ScheduleOverviewHeader(
-                compact = screenWidthDp < 560,
                 todayCourseCount = todayCourseCount,
                 currentMode = viewMode,
                 currentWeekIndex = currentWeekIndex,
@@ -237,13 +240,13 @@ fun ScheduleOverviewScreen(onBack: (() -> Unit)? = null) {
                 when {
                     courses.isEmpty() -> EmptyScheduleState(
                         title = "还没有课程安排",
-                        message = "先添加课程和时间段，这里会显示一周课表和按天整理的课程列表。",
+                        message = "先添加课程和时间段。",
                         modifier = Modifier.fillMaxSize()
                     )
 
                     slots.isEmpty() -> EmptyScheduleState(
                         title = "还没有可用时间段模板",
-                        message = "先补充节次模板，课表才能正确展示模板时间或课程覆盖时间。",
+                        message = "先添加时间段。",
                         modifier = Modifier.fillMaxSize()
                     )
 
@@ -253,6 +256,8 @@ fun ScheduleOverviewScreen(onBack: (() -> Unit)? = null) {
                         gridSizing = gridSizing,
                         actionManager = actionManager,
                         courseMap = courseMap,
+                        presentationCourseMap = presentationCourseMap,
+                        onShowCourseDetail = { detailCourse = it },
                         onPasteInto = ::pasteInto,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -264,12 +269,18 @@ fun ScheduleOverviewScreen(onBack: (() -> Unit)? = null) {
                 }
             }
         }
+
+        detailCourse?.let { course ->
+            CourseDetailDialog(
+                item = course,
+                onDismiss = { detailCourse = null }
+            )
+        }
     }
 }
 
 @Composable
 private fun ScheduleOverviewHeader(
-    compact: Boolean,
     todayCourseCount: Int,
     currentMode: ScheduleViewMode,
     currentWeekIndex: Int,
@@ -284,43 +295,41 @@ private fun ScheduleOverviewHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (compact) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    OverviewStatusRowItems(
-                        items = listOf(
-                            "今天 $todayCourseCount 门",
-                            "第 $currentWeekIndex 周",
-                            "$currentParityLabel 周"
-                        )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OverviewStatusRowItems(
+                    items = listOf(
+                        "今天 $todayCourseCount 门",
+                        "第 $currentWeekIndex 周",
+                        "$currentParityLabel 周"
                     )
-                    ScheduleModeChips(currentMode = currentMode, onModeSelected = onModeSelected)
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Text(
+                        text = "视图切换",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     FlowRow(
-                        modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OverviewStatusRowItems(
-                            items = listOf(
-                                "今天 $todayCourseCount 门",
-                                "第 $currentWeekIndex 周",
-                                "$currentParityLabel 周"
-                            )
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ScheduleModeChips(currentMode = currentMode, onModeSelected = onModeSelected)
                     }
                 }
@@ -381,6 +390,8 @@ private fun WeekScheduleView(
     gridSizing: GridSizingConfig,
     actionManager: ScheduleCourseActionManager,
     courseMap: Map<String, Course>,
+    presentationCourseMap: Map<String, SchedulePresentationCourse>,
+    onShowCourseDetail: (SchedulePresentationCourse) -> Unit,
     onPasteInto: (ScheduleCellTarget) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -421,6 +432,8 @@ private fun WeekScheduleView(
                                 target = target,
                                 actionManager = actionManager,
                                 courseMap = courseMap,
+                                presentationCourseMap = presentationCourseMap,
+                                onShowCourseDetail = onShowCourseDetail,
                                 onPasteInto = onPasteInto
                             )
                         }
@@ -506,6 +519,8 @@ private fun WeekCourseCell(
     target: ScheduleCellTarget,
     actionManager: ScheduleCourseActionManager,
     courseMap: Map<String, Course>,
+    presentationCourseMap: Map<String, SchedulePresentationCourse>,
+    onShowCourseDetail: (SchedulePresentationCourse) -> Unit,
     onPasteInto: (ScheduleCellTarget) -> Unit
 ) {
     var menuExpanded by remember(target.dayOfWeek, target.slotId) { mutableStateOf(false) }
@@ -552,7 +567,7 @@ private fun WeekCourseCell(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (canPaste) "长按可粘贴" else "空白时间格",
+                        text = if (canPaste) "长按粘贴" else "空白",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -570,6 +585,8 @@ private fun WeekCourseCell(
                         CourseBlock(
                             item = item,
                             compact = metrics.cellWidthDp < 128f,
+                            cellWidthDp = metrics.cellWidthDp,
+                            cellHeightDp = metrics.cellHeightDp,
                             isSelected = actionManager.selectedCourseId == item.id,
                             modifier = Modifier
                                 .weight(1f, fill = true)
@@ -604,6 +621,16 @@ private fun WeekCourseCell(
                 onDismissRequest = { menuExpanded = false }
             ) {
                 val selectedCourse = actionManager.selectedCourseId?.let(courseMap::get)
+                val selectedPresentationCourse = actionManager.selectedCourseId?.let(presentationCourseMap::get)
+                if (selectedPresentationCourse != null && selectedCourse != null && selectedCourse.slotId == target.slotId && selectedCourse.dayOfWeek == target.dayOfWeek) {
+                    DropdownMenuItem(
+                        text = { Text("查看详情") },
+                        onClick = {
+                            onShowCourseDetail(selectedPresentationCourse)
+                            menuExpanded = false
+                        }
+                    )
+                }
                 if (selectedCourse != null && selectedCourse.slotId == target.slotId && selectedCourse.dayOfWeek == target.dayOfWeek) {
                     DropdownMenuItem(
                         text = { Text("复制") },
@@ -666,7 +693,7 @@ private fun ListScheduleView(
                     )
                     if (dayCourses.isEmpty()) {
                         Text(
-                            text = "当天还没有课程安排。",
+                            text = "当天暂无课程",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -736,13 +763,13 @@ private fun CourseListItem(item: SchedulePresentationCourse) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "教师：${item.teacher.ifBlank { "待补充" }}",
+                        text = "教师：${item.teacher.ifBlank { "未填" }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (item.useThemeDefaults) MaterialTheme.colorScheme.onSurfaceVariant else textColor.copy(alpha = 0.86f),
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = "地点：${item.location.ifBlank { "待补充" }}",
+                        text = "地点：${item.location.ifBlank { "未填" }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (item.useThemeDefaults) MaterialTheme.colorScheme.onSurfaceVariant else textColor.copy(alpha = 0.86f),
                         modifier = Modifier.weight(1f)
@@ -753,16 +780,35 @@ private fun CourseListItem(item: SchedulePresentationCourse) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CourseBlock(
     item: SchedulePresentationCourse,
     compact: Boolean,
+    cellWidthDp: Float,
+    cellHeightDp: Float,
     isSelected: Boolean,
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = Color(item.backgroundColorArgb)
     val textColor = Color(ensureReadableTextColor(item.backgroundColorArgb, item.textColorArgb))
     val borderColor = Color(item.borderColorArgb)
+    val contentColor = if (item.useThemeDefaults) {
+        if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        textColor
+    }
+    val secondaryContentColor = if (item.useThemeDefaults) {
+        contentColor.copy(alpha = 0.82f)
+    } else {
+        textColor.copy(alpha = 0.86f)
+    }
+    val showSeparateTeacherAndLocation = !compact && cellHeightDp >= 128f
+    val supportLine = listOfNotNull(
+        item.teacher.takeIf { it.isNotBlank() },
+        item.location.takeIf { it.isNotBlank() }
+    ).joinToString(" · ")
+    val useMarquee = !compact && cellWidthDp >= 138f
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = if (item.useThemeDefaults) {
@@ -786,51 +832,111 @@ private fun CourseBlock(
                 Text(
                     text = item.name,
                     style = if (compact) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,
-                    color = if (item.useThemeDefaults) {
-                        if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
-                    } else {
-                        textColor
-                    },
-                    maxLines = if (compact) 2 else 1,
+                    color = contentColor,
+                    maxLines = if (useMarquee) 1 else 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (useMarquee) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
                 )
-                WeekTag(label = item.weekParity.shortLabel(), compact = compact)
             }
-            Text(
-                text = "${item.startTime} - ${item.endTime}" + if (item.hasTimeOverride) " · 覆盖" else "",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (item.useThemeDefaults) {
-                    if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
-                } else {
-                    textColor.copy(alpha = 0.92f)
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = item.teacher.ifBlank { "教师待补充" },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (item.useThemeDefaults) {
-                    if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
-                } else {
-                    textColor.copy(alpha = 0.86f)
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = item.location.ifBlank { "地点待补充" },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (item.useThemeDefaults) {
-                    if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
-                } else {
-                    textColor.copy(alpha = 0.86f)
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                WeekTag(label = item.weekParity.shortLabel(), compact = true)
+                if (item.hasTimeOverride) {
+                    CourseMetaTag(label = "覆盖")
+                }
+            }
+            if (showSeparateTeacherAndLocation) {
+                item.teacher.takeIf { it.isNotBlank() }?.let { teacher ->
+                    Text(
+                        text = teacher,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondaryContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                item.location.takeIf { it.isNotBlank() }?.let { location ->
+                    Text(
+                        text = location,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondaryContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else if (supportLine.isNotBlank()) {
+                Text(
+                    text = supportLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondaryContentColor,
+                    maxLines = if (compact) 1 else 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun CourseMetaTag(label: String) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun CourseDetailDialog(
+    item: SchedulePresentationCourse,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭")
+            }
+        },
+        title = { Text(item.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                CourseDetailRow(label = "单双周", value = item.weekParity.displayLabel())
+                CourseDetailRow(label = "教师", value = item.teacher.ifBlank { "未填" })
+                CourseDetailRow(label = "地点", value = item.location.ifBlank { "未填" })
+                CourseDetailRow(label = "时间段", value = item.slotLabel)
+                CourseDetailRow(
+                    label = if (item.hasTimeOverride) "覆盖时间" else "上课时间",
+                    value = "${item.startTime} - ${item.endTime}"
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun CourseDetailRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -842,7 +948,7 @@ private fun MissingSlotNotice(count: Int, metrics: ScheduleLayoutMetrics) {
         modifier = Modifier.width((metrics.labelColumnWidthDp + metrics.cellWidthDp * 7 + 24f).dp)
     ) {
         Text(
-            text = "$count 门课程缺少可匹配模板，暂未显示在周视图中。",
+            text = "$count 门课程暂未显示，请补充时间段。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onTertiaryContainer,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)

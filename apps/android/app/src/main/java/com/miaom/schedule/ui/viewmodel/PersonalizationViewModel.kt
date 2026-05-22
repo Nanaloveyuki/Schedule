@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.miaom.schedule.data.repository.ScheduleStore
+import com.miaom.schedule.domain.model.BackgroundImageDisplayMode
 import com.miaom.schedule.domain.model.BackgroundMode
 import com.miaom.schedule.domain.model.BuiltInFontOption
 import com.miaom.schedule.domain.model.GridSizingConfig
@@ -79,8 +80,25 @@ class PersonalizationViewModel(
     fun updateBackgroundImageReference(reference: String) =
         updateThemeConfig { it.copy(background = it.background.copy(imageReference = reference)) }
 
+    fun applyImportedBackgroundImageReference(reference: String) =
+        updateThemeConfig { config ->
+            val resolvedMode = when (BackgroundMode.entries.firstOrNull { it.name == config.background.mode } ?: BackgroundMode.Solid) {
+                BackgroundMode.Solid, BackgroundMode.Image -> BackgroundMode.Image
+                BackgroundMode.SolidBlur, BackgroundMode.ImageBlur -> BackgroundMode.ImageBlur
+            }
+            config.copy(
+                background = config.background.copy(
+                    imageReference = reference,
+                    mode = resolvedMode.name
+                )
+            )
+        }
+
     fun updateBackgroundBlurRadius(value: Float) =
         updateThemeConfig { it.copy(background = it.background.copy(blurRadiusDp = value)) }
+
+    fun updateBackgroundImageDisplayMode(mode: BackgroundImageDisplayMode) =
+        updateThemeConfig { it.copy(background = it.background.copy(imageDisplayMode = mode.name)) }
 
     fun updateBuiltInFont(font: BuiltInFontOption) =
         updateThemeConfig { it.copy(font = it.font.copy(builtInFontId = font.name)) }

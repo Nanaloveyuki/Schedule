@@ -21,6 +21,13 @@ enum class BackgroundMode {
     ImageBlur
 }
 
+enum class BackgroundImageDisplayMode {
+    Fill,
+    Fit,
+    Stretch,
+    Crop
+}
+
 enum class BuiltInFontOption {
     SystemSans,
     Serif,
@@ -69,7 +76,8 @@ data class BackgroundConfig(
     val mode: String = BackgroundMode.Solid.name,
     val solidColorHex: String = ThemeColorTokens().backgroundHex,
     val imageReference: String = "",
-    val blurRadiusDp: Float = 18f
+    val blurRadiusDp: Float = 18f,
+    val imageDisplayMode: String = BackgroundImageDisplayMode.Crop.name
 )
 
 data class FontConfig(
@@ -558,11 +566,15 @@ private fun ThemeColorTokens.normalized(primaryFallback: String): ThemeColorToke
 private fun BackgroundConfig.normalized(defaultColorHex: String): BackgroundConfig {
     val resolvedMode = BackgroundMode.entries.firstOrNull { it.name.equals(mode, ignoreCase = true) }
         ?: BackgroundMode.Solid
+    val resolvedImageDisplayMode = BackgroundImageDisplayMode.entries.firstOrNull {
+        it.name.equals(imageDisplayMode, ignoreCase = true)
+    } ?: BackgroundImageDisplayMode.Crop
     return copy(
         mode = resolvedMode.name,
         solidColorHex = normalizeHexColor(solidColorHex, defaultColorHex),
         imageReference = imageReference.trim().take(180),
-        blurRadiusDp = blurRadiusDp.coerceIn(0f, 36f)
+        blurRadiusDp = blurRadiusDp.coerceIn(0f, 36f),
+        imageDisplayMode = resolvedImageDisplayMode.name
     )
 }
 
