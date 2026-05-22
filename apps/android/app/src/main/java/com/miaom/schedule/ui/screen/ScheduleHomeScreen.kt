@@ -51,7 +51,7 @@ fun ScheduleHomeScreen(
                 text = "课程与提醒",
                 style = MaterialTheme.typography.headlineMedium
             )
-            Text("基于 Material 3 的本地优先课程表雏形，当前支持本地保存课程、时间段与提醒配置。")
+            Text("统一查看课程、时间段和提醒状态，重点确认本周安排是否可直接使用。")
 
             EntryCard(
                 title = "课表查看",
