@@ -10,6 +10,6 @@ class ScheduleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         appContainer = AppContainer(this)
+        appContainer.reminderOrchestrator.start()
     }
 }
-
