@@ -2,6 +2,7 @@ package com.miaom.schedule.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,6 +10,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -17,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.miaom.schedule.ScheduleApplication
+import com.miaom.schedule.domain.model.TimeSlot
+import com.miaom.schedule.ui.component.EditorHistoryActions
+import com.miaom.schedule.ui.component.EditorInlineNote
+import com.miaom.schedule.ui.component.EditorSectionCard
+import com.miaom.schedule.ui.component.TimeSlotFormFields
 import com.miaom.schedule.ui.viewmodel.TimeSlotEditorViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,13 +46,34 @@ import com.miaom.schedule.ui.viewmodel.TimeSlotEditorViewModel
 fun TimeSlotEditorScreen(onBack: () -> Unit) {
     val appContainer = (LocalContext.current.applicationContext as ScheduleApplication).appContainer
     val viewModel: TimeSlotEditorViewModel = viewModel(
-        factory = TimeSlotEditorViewModel.factory(appContainer.scheduleRepository)
+        factory = TimeSlotEditorViewModel.factory(
+            repository = appContainer.scheduleRepository,
+            scheduleStore = appContainer.scheduleStore
+        )
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    var editingSlotId by remember { mutableStateOf<String?>(null) }
     var label by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf("") }
     var endTime by remember { mutableStateOf("") }
+    var slotExpanded by remember { mutableStateOf(false) }
+    val canSave = label.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank()
+    val editingSlot = uiState.slots.firstOrNull { it.id == editingSlotId }
+
+    fun resetForm() {
+        editingSlotId = null
+        label = ""
+        startTime = ""
+        endTime = ""
+        slotExpanded = false
+    }
+
+    LaunchedEffect(uiState.slots, editingSlotId) {
+        if (editingSlotId != null && editingSlot == null) {
+            resetForm()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -62,66 +95,150 @@ fun TimeSlotEditorScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Card {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                EditorHistoryActions(
+                    canUndo = uiState.undoState.canUndo,
+                    canRedo = uiState.undoState.canRedo,
+                    onUndo = viewModel::undo,
+                    onRedo = viewModel::redo
+                )
+            }
+
+            item {
+                EditorSectionCard(
+                    title = "模板编辑",
+                    subtitle = if (editingSlotId == null) {
+                        "这里维护时间段模板；课程级覆盖时间在课程编辑页单独设置。"
+                    } else {
+                        "正在修改已保存模板。"
+                    }
+                ) {
+                    ExposedDropdownMenuBox(
+                        expanded = slotExpanded && uiState.slots.isNotEmpty(),
+                        onExpandedChange = { expanded ->
+                            if (uiState.slots.isNotEmpty()) {
+                                slotExpanded = expanded
+                            }
+                        }
                     ) {
-                        Text("新增时间段", style = MaterialTheme.typography.titleMedium)
                         OutlinedTextField(
-                            value = label,
-                            onValueChange = { label = it },
-                            label = { Text("节次名称") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = startTime,
-                            onValueChange = { startTime = it },
-                            label = { Text("开始时间，例如 08:00") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = endTime,
-                            onValueChange = { endTime = it },
-                            label = { Text("结束时间，例如 08:45") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        Button(
-                            onClick = {
-                                if (label.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank()) {
-                                    viewModel.saveTimeSlot(label, startTime, endTime)
-                                    label = ""
-                                    startTime = ""
-                                    endTime = ""
-                                }
+                            value = editingSlot?.let { "${it.label} ${it.startTime}-${it.endTime}" }.orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("选择已有模板") },
+                            placeholder = { Text("不选则创建新模板") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = slotExpanded && uiState.slots.isNotEmpty())
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                .fillMaxWidth(),
+                            singleLine = true
+                        )
+                        DropdownMenu(
+                            expanded = slotExpanded && uiState.slots.isNotEmpty(),
+                            onDismissRequest = { slotExpanded = false }
                         ) {
-                            Text("保存时间段")
+                            uiState.slots.forEach { slot ->
+                                DropdownMenuItem(
+                                    text = { Text("${slot.label} ${slot.startTime}-${slot.endTime}") },
+                                    onClick = {
+                                        editingSlotId = slot.id
+                                        label = slot.label
+                                        startTime = slot.startTime
+                                        endTime = slot.endTime
+                                        slotExpanded = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                )
+                            }
+                        }
+                    }
+                    TextButton(onClick = ::resetForm) {
+                        Text("切换为新建模板")
+                    }
+                    TimeSlotFormFields(
+                        label = label,
+                        onLabelChange = { label = it },
+                        startTime = startTime,
+                        onStartTimeChange = { startTime = it },
+                        endTime = endTime,
+                        onEndTimeChange = { endTime = it }
+                    )
+                    EditorInlineNote(
+                        text = if (editingSlotId == null) {
+                            "当前会新增一个模板时间段。"
+                        } else {
+                            "当前会更新所选模板，引用该模板的课程会同步看到新的模板时间。"
+                        }
+                    )
+                }
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = {
+                            viewModel.saveTimeSlot(
+                                slotId = editingSlotId,
+                                label = label,
+                                startTime = startTime,
+                                endTime = endTime
+                            )
+                            resetForm()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = canSave
+                    ) {
+                        Text(if (editingSlotId == null) "保存模板" else "更新模板")
+                    }
+                    if (editingSlotId != null) {
+                        TextButton(onClick = ::resetForm) {
+                            Text("取消编辑")
                         }
                     }
                 }
             }
 
             item {
-                Text("已保存时间段", style = MaterialTheme.typography.titleMedium)
+                Text("已保存时间段模板", style = MaterialTheme.typography.titleMedium)
             }
 
             items(uiState.slots, key = { it.id }) { slot ->
-                Card {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(slot.label, style = MaterialTheme.typography.titleMedium)
-                        Text("${slot.startTime} - ${slot.endTime}")
-                        TextButton(onClick = { viewModel.deleteTimeSlot(slot.id) }) {
-                            Text("删除")
-                        }
-                    }
+                TimeSlotSummaryCard(
+                    slot = slot,
+                    onEdit = {
+                        editingSlotId = slot.id
+                        label = slot.label
+                        startTime = slot.startTime
+                        endTime = slot.endTime
+                        slotExpanded = false
+                    },
+                    onDelete = { viewModel.deleteTimeSlot(slot.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeSlotSummaryCard(
+    slot: TimeSlot,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(slot.label, style = MaterialTheme.typography.titleMedium)
+            Text("${slot.startTime} - ${slot.endTime}")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextButton(onClick = onEdit) {
+                    Text("编辑")
+                }
+                TextButton(onClick = onDelete) {
+                    Text("删除")
                 }
             }
         }
