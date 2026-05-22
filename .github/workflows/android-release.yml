@@ -56,14 +56,18 @@ jobs:
           ORG_GRADLE_PROJECT_releaseKeyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Upload release APK artifact
+      - name: Upload release outputs artifact
         uses: actions/upload-artifact@v4
         with:
-          name: schedule-android-release-apk
-          path: apps/android/app/build/outputs/apk/release/*.apk
+          name: schedule-android-release-outputs
+          path: |
+            apps/android/app/build/outputs/apk/release/*
+            apps/android/app/build/outputs/mapping/release/*
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: apps/android/app/build/outputs/apk/release/*.apk
+          files: |
+            apps/android/app/build/outputs/apk/release/*.apk
+            apps/android/app/build/outputs/mapping/release/*
