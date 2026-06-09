@@ -8,6 +8,7 @@ data class Course(
     val dayOfWeek: Int,
     val slotId: String,
     val weekParity: WeekParity = WeekParity.Every,
+    val weekNumbers: List<Int> = emptyList(),
     val overrideStartTime: String = "",
     val overrideEndTime: String = "",
     val useThemeDefaults: Boolean = true,

@@ -140,6 +140,7 @@ class PresetsViewModel(
                         dayOfWeek = 1,
                         slotId = slotId,
                         weekParity = snapshot.weekParity,
+                        weekNumbers = snapshot.weekNumbers,
                         overrideStartTime = snapshot.timeOverride?.startTime.orEmpty(),
                         overrideEndTime = snapshot.timeOverride?.endTime.orEmpty(),
                         useThemeDefaults = snapshot.colorStyle.useThemeDefaults,

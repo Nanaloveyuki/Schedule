@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.max
 import kotlin.math.min
 
-private const val SCHEDULE_DOCUMENT_CURRENT_VERSION = 3
+private const val SCHEDULE_DOCUMENT_CURRENT_VERSION = 4
 private val DEFAULT_WEEK1_MONDAY: LocalDate = LocalDate.of(2026, 2, 23)
 
 enum class WeekParity {
@@ -112,6 +112,7 @@ data class CourseTemplatePresetSnapshot(
     val preferredTimeSlotTemplateId: String = "",
     val preferredTimeSlotLabel: String = "",
     val weekParity: WeekParity = WeekParity.Every,
+    val weekNumbers: List<Int> = emptyList(),
     val timeOverride: CourseTimeOverride? = null,
     val colorStyle: CourseColorStyle = CourseColorStyle()
 )
@@ -163,6 +164,7 @@ data class CourseEntry(
     val dayOfWeek: Int,
     val timeSlotTemplateId: String,
     val weekParity: WeekParity = WeekParity.Every,
+    val weekNumbers: List<Int> = emptyList(),
     val timeOverride: CourseTimeOverride? = null,
     val colorStyle: CourseColorStyle = CourseColorStyle()
 ) {
@@ -227,6 +229,7 @@ data class SchedulePresentationCourse(
     val startTime: String,
     val endTime: String,
     val weekParity: WeekParity,
+    val weekNumbers: List<Int>,
     val hasTimeOverride: Boolean,
     val useThemeDefaults: Boolean,
     val backgroundColorArgb: Int,
@@ -257,6 +260,7 @@ fun CourseEntry.toCourse(template: TimeSlotTemplate? = null): Course = Course(
     dayOfWeek = dayOfWeek,
     slotId = timeSlotTemplateId,
     weekParity = weekParity,
+    weekNumbers = weekNumbers,
     overrideStartTime = timeOverride?.startTime.orEmpty(),
     overrideEndTime = timeOverride?.endTime.orEmpty(),
     useThemeDefaults = colorStyle.useThemeDefaults,
@@ -275,6 +279,7 @@ fun Course.toEntry(): CourseEntry = CourseEntry(
     dayOfWeek = dayOfWeek,
     timeSlotTemplateId = slotId,
     weekParity = weekParity,
+    weekNumbers = weekNumbers,
     timeOverride = overrideStartTime.takeIf { it.isNotBlank() || overrideEndTime.isNotBlank() }?.let {
         CourseTimeOverride(
             startTime = overrideStartTime,
@@ -342,6 +347,7 @@ fun ScheduleDocument.toPresentationCourses(): List<SchedulePresentationCourse> {
             startTime = entry.effectiveStartTime(template),
             endTime = entry.effectiveEndTime(template),
             weekParity = entry.weekParity,
+            weekNumbers = entry.weekNumbers,
             hasTimeOverride = entry.timeOverride != null,
             useThemeDefaults = entry.colorStyle.useThemeDefaults,
             backgroundColorArgb = entry.colorStyle.backgroundColorArgb,
@@ -423,6 +429,7 @@ fun Course.toTemplatePresetSnapshot(
     preferredTimeSlotTemplateId = slotId,
     preferredTimeSlotLabel = preferredTimeSlotLabel,
     weekParity = weekParity,
+    weekNumbers = weekNumbers,
     timeOverride = overrideStartTime.takeIf { it.isNotBlank() || overrideEndTime.isNotBlank() }?.let {
         CourseTimeOverride(
             startTime = overrideStartTime,
@@ -503,6 +510,7 @@ fun ScheduleDocument.normalized(updatedAtEpochMillis: Long = this.updatedAtEpoch
             .map { entry ->
                 entry.copy(
                     dayOfWeek = entry.dayOfWeek.coerceIn(1, 7),
+                    weekNumbers = normalizeWeekNumbers(entry.weekNumbers),
                     timeOverride = entry.timeOverride?.normalizedOrNull(),
                     colorStyle = entry.colorStyle.normalized()
                 )
@@ -622,6 +630,7 @@ private fun CourseTemplatePresetSnapshot.normalized(): CourseTemplatePresetSnaps
     location = location.trim().take(32),
     preferredTimeSlotTemplateId = preferredTimeSlotTemplateId.trim().take(64),
     preferredTimeSlotLabel = preferredTimeSlotLabel.trim().take(24),
+    weekNumbers = normalizeWeekNumbers(weekNumbers),
     timeOverride = timeOverride?.normalizedOrNull(),
     colorStyle = colorStyle.normalized()
 )

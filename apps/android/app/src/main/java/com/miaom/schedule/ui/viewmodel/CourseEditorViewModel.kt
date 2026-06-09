@@ -91,6 +91,9 @@ class CourseEditorViewModel(
                     dayOfWeek = dayOfWeek,
                     slotId = slotId,
                     weekParity = weekParity,
+                    weekNumbers = courseId
+                        ?.let { existingId -> uiState.value.courses.firstOrNull { it.id == existingId }?.weekNumbers }
+                        .orEmpty(),
                     overrideStartTime = overrideStartTime.trim(),
                     overrideEndTime = overrideEndTime.trim(),
                     useThemeDefaults = useThemeDefaults,

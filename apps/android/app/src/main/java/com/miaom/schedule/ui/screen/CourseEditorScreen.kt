@@ -46,6 +46,7 @@ import com.miaom.schedule.domain.model.Course
 import com.miaom.schedule.domain.model.TimeSlot
 import com.miaom.schedule.domain.model.WeekParity
 import com.miaom.schedule.domain.model.displayLabel
+import com.miaom.schedule.domain.model.weekRuleDisplayLabel
 import com.miaom.schedule.ui.component.CourseColorEditor
 import com.miaom.schedule.ui.component.CourseColorEditorMode
 import com.miaom.schedule.ui.component.CourseColorEditorState
@@ -514,7 +515,7 @@ private fun CourseSummaryCard(
             Text(course.name, style = MaterialTheme.typography.titleMedium)
             Text("教师：${course.teacher.ifBlank { "未填写" }}")
             Text("地点：${course.location.ifBlank { "未填写" }}")
-            Text("${weekdayLabels.getOrElse(course.dayOfWeek - 1) { "星期 ${course.dayOfWeek}" }} · ${course.weekParity.displayLabel()}")
+            Text("${weekdayLabels.getOrElse(course.dayOfWeek - 1) { "星期 ${course.dayOfWeek}" }} · ${weekRuleDisplayLabel(course.weekParity, course.weekNumbers)}")
             Text(
                 if (course.effectiveStartTime.isNotBlank() && course.effectiveEndTime.isNotBlank()) {
                     "时间：${course.effectiveStartTime} - ${course.effectiveEndTime}" +

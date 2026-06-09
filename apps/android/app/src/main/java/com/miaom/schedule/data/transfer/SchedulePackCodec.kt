@@ -248,6 +248,7 @@ object SchedulePackCodec {
                         .put("dayOfWeek", course.dayOfWeek)
                         .put("timeSlotTemplateId", course.timeSlotTemplateId)
                         .put("weekParity", course.weekParity.name)
+                        .put("weekNumbers", JSONArray(course.weekNumbers))
                         .put("timeOverride", course.timeOverride?.let {
                             JSONObject()
                                 .put("startTime", it.startTime)
@@ -276,6 +277,7 @@ object SchedulePackCodec {
                             .put("preferredTimeSlotTemplateId", preset.snapshot.preferredTimeSlotTemplateId)
                             .put("preferredTimeSlotLabel", preset.snapshot.preferredTimeSlotLabel)
                             .put("weekParity", preset.snapshot.weekParity.name)
+                            .put("weekNumbers", JSONArray(preset.snapshot.weekNumbers))
                             .put("timeOverride", preset.snapshot.timeOverride?.let {
                                 JSONObject()
                                     .put("startTime", it.startTime)
@@ -413,6 +415,10 @@ object SchedulePackCodec {
             weekParity = com.miaom.schedule.domain.model.WeekParity.valueOf(
                 json?.optString("weekParity", "Every") ?: "Every"
             ),
+            weekNumbers = buildList {
+                val array = json?.optJSONArray("weekNumbers")
+                if (array != null) for (index in 0 until array.length()) add(array.optInt(index, index + 1))
+            },
             timeOverride = json?.optJSONObject("timeOverride")?.let {
                 com.miaom.schedule.domain.model.CourseTimeOverride(
                     startTime = it.optString("startTime"),
@@ -473,6 +479,10 @@ object SchedulePackCodec {
                                 dayOfWeek = item.optInt("dayOfWeek", 1),
                                 timeSlotTemplateId = item.optString("timeSlotTemplateId", item.optString("slotId")),
                                 weekParity = com.miaom.schedule.domain.model.WeekParity.valueOf(item.optString("weekParity", "Every")),
+                                weekNumbers = buildList {
+                                    val weeksArray = item.optJSONArray("weekNumbers")
+                                    if (weeksArray != null) for (weekIndex in 0 until weeksArray.length()) add(weeksArray.optInt(weekIndex, weekIndex + 1))
+                                },
                                 timeOverride = item.optJSONObject("timeOverride")?.let {
                                     com.miaom.schedule.domain.model.CourseTimeOverride(
                                         startTime = it.optString("startTime"),
@@ -608,6 +618,10 @@ object SchedulePackCodec {
             preferredTimeSlotTemplateId = jsonObject.optString("preferredTimeSlotTemplateId"),
             preferredTimeSlotLabel = jsonObject.optString("preferredTimeSlotLabel"),
             weekParity = com.miaom.schedule.domain.model.WeekParity.valueOf(jsonObject.optString("weekParity", "Every")),
+            weekNumbers = buildList {
+                val array = jsonObject.optJSONArray("weekNumbers")
+                if (array != null) for (index in 0 until array.length()) add(array.optInt(index, index + 1))
+            },
             timeOverride = jsonObject.optJSONObject("timeOverride")?.let {
                 com.miaom.schedule.domain.model.CourseTimeOverride(
                     startTime = it.optString("startTime"),
@@ -633,6 +647,7 @@ object SchedulePackCodec {
             .put("preferredTimeSlotTemplateId", snapshot.preferredTimeSlotTemplateId)
             .put("preferredTimeSlotLabel", snapshot.preferredTimeSlotLabel)
             .put("weekParity", snapshot.weekParity.name)
+            .put("weekNumbers", JSONArray(snapshot.weekNumbers))
             .put(
                 "timeOverride",
                 snapshot.timeOverride?.let {

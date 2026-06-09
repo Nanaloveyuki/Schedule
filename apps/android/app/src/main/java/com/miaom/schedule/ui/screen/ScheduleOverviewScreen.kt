@@ -80,6 +80,8 @@ import com.miaom.schedule.domain.model.shortLabel
 import com.miaom.schedule.domain.model.toCourse
 import com.miaom.schedule.domain.model.toPresentationCourses
 import com.miaom.schedule.domain.model.toTimeSlots
+import com.miaom.schedule.domain.model.weekRuleDisplayLabel
+import com.miaom.schedule.domain.model.weekRuleShortLabel
 import com.miaom.schedule.ui.interaction.CourseClipboardMode
 import com.miaom.schedule.ui.interaction.ScheduleCellTarget
 import com.miaom.schedule.ui.interaction.ScheduleCourseActionManager
@@ -751,7 +753,7 @@ private fun CourseListItem(item: SchedulePresentationCourse) {
                         overflow = TextOverflow.Ellipsis,
                         color = if (item.useThemeDefaults) MaterialTheme.colorScheme.onSurface else textColor
                     )
-                    WeekTag(label = item.weekParity.shortLabel())
+                    WeekTag(label = weekRuleShortLabel(item.weekParity, item.weekNumbers))
                 }
                 Text(
                     text = "${item.slotLabel} · ${item.startTime} - ${item.endTime}" + if (item.hasTimeOverride) " · 覆盖时间" else "",
@@ -844,7 +846,7 @@ private fun CourseBlock(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                WeekTag(label = item.weekParity.shortLabel(), compact = true)
+                WeekTag(label = weekRuleShortLabel(item.weekParity, item.weekNumbers), compact = true)
                 if (item.hasTimeOverride) {
                     CourseMetaTag(label = "覆盖")
                 }
@@ -911,7 +913,7 @@ private fun CourseDetailDialog(
         title = { Text(item.name) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                CourseDetailRow(label = "单双周", value = item.weekParity.displayLabel())
+                CourseDetailRow(label = "上课周次", value = weekRuleDisplayLabel(item.weekParity, item.weekNumbers))
                 CourseDetailRow(label = "教师", value = item.teacher.ifBlank { "未填" })
                 CourseDetailRow(label = "地点", value = item.location.ifBlank { "未填" })
                 CourseDetailRow(label = "时间段", value = item.slotLabel)

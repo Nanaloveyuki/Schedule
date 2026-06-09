@@ -305,6 +305,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
                     dayOfWeek = item.optInt("dayOfWeek", 1),
                     timeSlotTemplateId = item.optString("timeSlotTemplateId", item.optString("slotId")),
                     weekParity = parseWeekParity(item.optString("weekParity", WeekParity.Every.name)),
+                    weekNumbers = parseIntArray(item.optJSONArray("weekNumbers")),
                     timeOverride = parseTimeOverride(item.optJSONObject("timeOverride")),
                     colorStyle = parseCourseColorStyle(item.optJSONObject("colorStyle"))
                 )
@@ -349,6 +350,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
             dayOfWeek = item.optInt("dayOfWeek", 1),
             slotId = item.getString("slotId"),
             weekParity = parseWeekParity(item.optString("weekParity", WeekParity.Every.name)),
+            weekNumbers = parseIntArray(item.optJSONArray("weekNumbers")),
             overrideStartTime = item.optString("overrideStartTime"),
             overrideEndTime = item.optString("overrideEndTime"),
             useThemeDefaults = item.optBoolean("useThemeDefaults", true),
@@ -483,6 +485,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
             preferredTimeSlotTemplateId = jsonObject.optString("preferredTimeSlotTemplateId"),
             preferredTimeSlotLabel = jsonObject.optString("preferredTimeSlotLabel"),
             weekParity = parseWeekParity(jsonObject.optString("weekParity", WeekParity.Every.name)),
+            weekNumbers = parseIntArray(jsonObject.optJSONArray("weekNumbers")),
             timeOverride = parseTimeOverride(jsonObject.optJSONObject("timeOverride")),
             colorStyle = parseCourseColorStyle(jsonObject.optJSONObject("colorStyle"))
         )
@@ -602,6 +605,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
                             .put("dayOfWeek", entry.dayOfWeek)
                             .put("timeSlotTemplateId", entry.timeSlotTemplateId)
                             .put("weekParity", entry.weekParity.name)
+                            .put("weekNumbers", JSONArray(entry.weekNumbers))
                             .put(
                                 "timeOverride",
                                 entry.timeOverride?.let { override ->
@@ -739,6 +743,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
         .put("preferredTimeSlotTemplateId", snapshot.preferredTimeSlotTemplateId)
         .put("preferredTimeSlotLabel", snapshot.preferredTimeSlotLabel)
         .put("weekParity", snapshot.weekParity.name)
+        .put("weekNumbers", JSONArray(snapshot.weekNumbers))
         .put(
             "timeOverride",
             snapshot.timeOverride?.let { override ->
@@ -770,6 +775,7 @@ class PreferencesScheduleRepository(context: Context) : ScheduleRepository, Sche
                     .put("location", entry.location)
                     .put("dayOfWeek", entry.dayOfWeek)
                     .put("weekParity", entry.weekParity.name)
+                    .put("weekNumbers", JSONArray(entry.weekNumbers))
                     .put("slotId", entry.timeSlotTemplateId)
                     .put("overrideStartTime", entry.timeOverride?.startTime.orEmpty())
                     .put("overrideEndTime", entry.timeOverride?.endTime.orEmpty())

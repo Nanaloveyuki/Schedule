@@ -13,7 +13,7 @@ import com.miaom.schedule.domain.model.ReminderChannel
 import com.miaom.schedule.domain.model.ReminderRule
 import com.miaom.schedule.domain.model.ScheduleDocument
 import com.miaom.schedule.domain.model.TimeSlotTemplate
-import com.miaom.schedule.domain.model.WeekParity
+import com.miaom.schedule.domain.model.matchesWeekRule
 import com.miaom.schedule.domain.model.toReminderTask
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -285,11 +285,11 @@ class ReminderOrchestrator(
     }
 
     private fun matchesWeekParity(document: ScheduleDocument, courseEntry: CourseEntry, date: LocalDate): Boolean {
-        return when (courseEntry.weekParity) {
-            WeekParity.Every -> true
-            WeekParity.Odd -> document.weekConfig.parityFor(date) == WeekParity.Odd
-            WeekParity.Even -> document.weekConfig.parityFor(date) == WeekParity.Even
-        }
+        return matchesWeekRule(
+            weekParity = courseEntry.weekParity,
+            weekNumbers = courseEntry.weekNumbers,
+            weekIndex = document.weekConfig.weekIndexFor(date)
+        )
     }
 
     private fun parseLocalTime(value: String): LocalTime? = runCatching { LocalTime.parse(value) }.getOrNull()
