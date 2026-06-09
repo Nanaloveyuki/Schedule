@@ -96,6 +96,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.navigation:navigation-compose:2.9.5")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    implementation("com.google.code.gson:gson:2.13.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

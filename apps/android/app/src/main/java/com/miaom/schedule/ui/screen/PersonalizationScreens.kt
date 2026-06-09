@@ -1,5 +1,6 @@
 package com.miaom.schedule.ui.screen
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,10 +26,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -49,6 +55,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.miaom.schedule.ScheduleApplication
+import com.miaom.schedule.platform.calendar.CalendarScheduleReader
+import com.miaom.schedule.platform.network.RemoteScheduleFetcher
+import com.miaom.schedule.platform.ocr.OcrScheduleImporter
+import com.miaom.schedule.platform.share.ShareImportSupport
 import com.miaom.schedule.domain.model.BackgroundImageDisplayMode
 import com.miaom.schedule.domain.model.BackgroundMode
 import com.miaom.schedule.domain.model.BuiltInFontOption
@@ -65,7 +75,6 @@ import com.miaom.schedule.ui.viewmodel.ImportExportUiState
 import com.miaom.schedule.ui.viewmodel.ImportExportViewModel
 import com.miaom.schedule.ui.viewmodel.PersonalizationViewModel
 import com.miaom.schedule.ui.viewmodel.PresetsViewModel
-import java.io.ByteArrayInputStream
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -472,14 +481,26 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
         factory = PersonalizationViewModel.factory(appContainer.scheduleStore)
     )
     val importExportViewModel: ImportExportViewModel = viewModel(
-        factory = ImportExportViewModel.factory(appContainer.scheduleStore)
+        factory = ImportExportViewModel.factory(
+            scheduleStore = appContainer.scheduleStore,
+            ocrScheduleImporter = OcrScheduleImporter(context.applicationContext),
+            remoteScheduleFetcher = RemoteScheduleFetcher(),
+            calendarScheduleReader = CalendarScheduleReader(context.applicationContext),
+            importDraftInbox = appContainer.importDraftInbox
+        )
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val transferState by importExportViewModel.uiState.collectAsStateWithLifecycle()
     val themeConfig = uiState.themeConfig
     var clipboardImportText by remember { mutableStateOf("") }
+    var commonImportText by remember { mutableStateOf("") }
+    var linkImportText by remember { mutableStateOf("") }
     var pendingFileExportBytes by remember { mutableStateOf<ByteArray?>(null) }
     var textImportExpanded by rememberSaveable { mutableStateOf(false) }
+    var commonImportExpanded by rememberSaveable { mutableStateOf(false) }
+    var ocrImportExpanded by rememberSaveable { mutableStateOf(false) }
+    var linkImportExpanded by rememberSaveable { mutableStateOf(false) }
+    var calendarImportExpanded by rememberSaveable { mutableStateOf(false) }
     var importExportExpanded by rememberSaveable { mutableStateOf(true) }
     var defaultExportExpanded by rememberSaveable { mutableStateOf(false) }
     var preferencesExpanded by rememberSaveable { mutableStateOf(false) }
@@ -499,9 +520,33 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                importExportViewModel.importFromFile(ByteArrayInputStream(input.readBytes()))
+            persistReadPermission(context, uri)
+            val resolver = context.contentResolver
+            val contentType = resolver.getType(uri)
+            if (ShareImportSupport.isImagePayload(contentType, uri.lastPathSegment)) {
+                importExportViewModel.importImageFile(uri, contentType)
+            } else {
+                resolver.openInputStream(uri)?.use { input ->
+                    importExportViewModel.importFromFile(input.readBytes(), contentType)
+                }
             }
+        }
+    }
+    val importOcrImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        val selectedUris = uris.orEmpty().distinct()
+        if (selectedUris.isNotEmpty()) {
+            selectedUris.forEach { uri -> persistReadPermission(context, uri) }
+            importExportViewModel.importFromOcrImages(selectedUris)
+        }
+    }
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val granted = grants[Manifest.permission.READ_CALENDAR] == true && grants[Manifest.permission.WRITE_CALENDAR] == true
+        if (granted) {
+            importExportViewModel.importFromSystemCalendar()
         }
     }
 
@@ -517,6 +562,14 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
             )
         }
     ) { innerPadding ->
+        if (transferState.showCalendarSourcePicker) {
+            CalendarSourcePickerDialog(
+                transferState = transferState,
+                onDismiss = importExportViewModel::dismissCalendarSourcePicker,
+                onToggle = importExportViewModel::toggleCalendarSourceSelection,
+                onConfirm = importExportViewModel::confirmImportFromSelectedCalendars
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -566,10 +619,10 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = { importFileLauncher.launch(arrayOf("application/zip", "*/*")) },
+                        onClick = { importFileLauncher.launch(arrayOf("application/zip", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/calendar", "text/plain", "text/html", "application/xhtml+xml", "*/*")) },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("导入文件包")
+                        Text("导入文件")
                     }
                     Button(
                         onClick = {
@@ -607,8 +660,158 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
                         Text("从文本导入")
                     }
                 }
+                if (!commonImportExpanded) {
+                    OutlinedButton(
+                        onClick = { commonImportExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("导入通用课表文本/CSV")
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = commonImportText,
+                        onValueChange = { commonImportText = it },
+                        label = { Text("通用课表文本") },
+                        placeholder = { Text("支持 CSV、制表符文本、Markdown 表格、HTML 课表；至少包含周几、节次/时间、课程") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 5
+                    )
+                    EditorInlineNote("适合从常见课表软件导出的文本、JSON、HTML 表格、Excel 粘贴结果，或 OCR 识别后的纯文本。导入后会重建课程和时间段，提醒需要重新配置。")
+                    Button(
+                        onClick = { importExportViewModel.stageCommonImportText(commonImportText) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = commonImportText.isNotBlank()
+                    ) {
+                        Text("放入导入预览")
+                    }
+                }
+                if (!ocrImportExpanded) {
+                    OutlinedButton(
+                        onClick = { ocrImportExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("从课表图片 OCR 导入")
+                    }
+                } else {
+                    EditorInlineNote("适合导入截图、拍照后的课表图片，也支持一次选择多张截图合并识别。流程是本地 OCR 识别文本，再走同一套课表解析器。建议图片里尽量保留周几、时间段、课程名称。")
+                    Button(
+                        onClick = { importOcrImageLauncher.launch(arrayOf("image/*")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !transferState.isImportingFromOcr
+                    ) {
+                        Text(if (transferState.isImportingFromOcr) "识别中..." else "选择图片并识别")
+                    }
+                }
+                if (!linkImportExpanded) {
+                    OutlinedButton(
+                        onClick = { linkImportExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("从链接导入课表")
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = linkImportText,
+                        onValueChange = { linkImportText = it },
+                        label = { Text("课表链接") },
+                        placeholder = { Text("支持 webcal://、ICS 订阅链接、网页课表链接") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
+                    EditorInlineNote("适合导入学校或课表软件提供的 ICS 订阅链接、网页导出链接。链接内容会自动识别为 ICS、HTML 网页课表、文本课表或 schedulepack。")
+                    Button(
+                        onClick = { importExportViewModel.importFromLink(linkImportText) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = linkImportText.isNotBlank() && !transferState.isImportingFromLink
+                    ) {
+                        Text(if (transferState.isImportingFromLink) "下载中..." else "下载并导入")
+                    }
+                }
+                if (!calendarImportExpanded) {
+                    OutlinedButton(
+                        onClick = { calendarImportExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("从系统日历导入课表")
+                    }
+                } else {
+                    EditorInlineNote("适合已经同步到系统日历的课程事件。会先列出近期包含课程事件的可见日历，再按你勾选的来源导入，降低把普通提醒或会议混进课表的概率。")
+                    Button(
+                        onClick = {
+                            calendarPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.READ_CALENDAR,
+                                    Manifest.permission.WRITE_CALENDAR
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !transferState.isImportingFromCalendar
+                    ) {
+                        Text(if (transferState.isImportingFromCalendar) "导入中..." else "授权并从系统日历导入")
+                    }
+                }
+                if (transferState.stagedImportText.isNotBlank()) {
+                    OutlinedTextField(
+                        value = transferState.stagedImportText,
+                        onValueChange = importExportViewModel::updateStagedImportText,
+                        label = {
+                            Text(
+                                if (transferState.stagedImportSourceLabel.isBlank()) {
+                                    "导入预览文本"
+                                } else {
+                                    "${transferState.stagedImportSourceLabel}"
+                                }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 6
+                    )
+                    if (transferState.lastRecognizedOcrText.isNotBlank()) {
+                        val normalizedByApp = transferState.lastParsedOcrText.isNotBlank() &&
+                            transferState.lastParsedOcrText != transferState.rawRecognizedOcrText
+                        EditorInlineNote(
+                            if (normalizedByApp) {
+                                "这段预览文本来自最近一次 OCR 识别，并已按课表导入规则做过整理。可继续手动修正，再执行导入。"
+                            } else {
+                                "这段文本来自最近一次 OCR 识别。可先手动修正，再执行导入。"
+                            }
+                        )
+                        if (normalizedByApp) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { importExportViewModel.useRawRecognizedOcrText() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("查看原始 OCR 文本")
+                                }
+                                OutlinedButton(
+                                    onClick = { importExportViewModel.useParsedOcrText() },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = transferState.lastParsedOcrText.isNotBlank()
+                                ) {
+                                    Text("恢复整理后文本")
+                                }
+                            }
+                        }
+                    }
+                    Button(
+                        onClick = { importExportViewModel.importFromStagedText() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = transferState.stagedImportText.isNotBlank() && !transferState.isImportingFromOcr
+                    ) {
+                        Text("确认导入当前预览文本")
+                    }
+                }
                 if (transferState.lastStatus.isNotBlank()) {
                     EditorInlineNote(transferState.lastStatus)
+                }
+                EditorInlineNote("文件导入会自动识别 `schedulepack`、`ICS 日历`、`JSON 课表`、`Excel xlsx 课表`、`HTML 网页课表`、常见文本课表，以及课表截图/照片并转入 OCR 预览。旧版 `.xls` 请先转换为 `.xlsx` 或 CSV。")
+                transferState.lastImportWarnings.takeIf { it.isNotEmpty() }?.forEach { warning ->
+                    EditorInlineNote(warning)
                 }
             }
             EditorExpandableSectionCard(
@@ -696,6 +899,87 @@ fun SettingsScreen(onBack: (() -> Unit)? = null) {
             }
         }
     }
+}
+
+@Composable
+private fun CalendarSourcePickerDialog(
+    transferState: ImportExportUiState,
+    onDismiss: () -> Unit,
+    onToggle: (Long, Boolean) -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = transferState.selectedCalendarSourceIds.isNotEmpty() && !transferState.isImportingFromCalendar
+            ) {
+                Text(if (transferState.isImportingFromCalendar) "导入中..." else "确认导入")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !transferState.isImportingFromCalendar) {
+                Text("取消")
+            }
+        },
+        title = { Text("选择系统日历") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "仅显示近期识别出课程事件的可见日历。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                transferState.availableCalendarSources.forEach { source ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(
+                                checked = transferState.selectedCalendarSourceIds.contains(source.id),
+                                onCheckedChange = { checked -> onToggle(source.id, checked == true) },
+                                enabled = !transferState.isImportingFromCalendar
+                            )
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(source.displayName, style = MaterialTheme.typography.titleSmall)
+                                val metaParts = listOf(source.accountName, source.ownerAccount)
+                                    .filter { it.isNotBlank() }
+                                    .distinct()
+                                if (metaParts.isNotEmpty()) {
+                                    Text(
+                                        text = metaParts.joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = "约 ${source.eventCountHint} 条课程事件",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                if (transferState.lastStatus.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = transferState.lastStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    )
 }
 
 @Composable
